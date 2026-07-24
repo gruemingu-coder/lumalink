@@ -50,6 +50,13 @@ export interface PcDevice {
    * user to re-pair.
    */
   pairingPin?: string;
+  /**
+   * LAN MAC address reported by the Host App during pairing, if it
+   * could be determined. Used to send a Wake-on-LAN magic packet from
+   * the LumaLink Streaming desktop app when this device is asleep.
+   * Browsers can't send raw UDP, so WOL only works from the Tauri app.
+   */
+  macAddress?: string | null;
 }
 
 /** A device discovered on the network but not yet paired. */
@@ -79,11 +86,25 @@ export interface Game {
   lastPlayedAt: string | null;
   playtimeHours: number;
   sizeGb: number;
+  /**
+   * Synthetic "그냥 원격 데스크탑" entry for real devices — selecting it
+   * starts a session that mirrors whatever's currently on screen
+   * instead of launching a specific Steam game first.
+   */
+  isDesktopMode?: boolean;
 }
 
 export type StreamResolution = "720p" | "1080p" | "1440p" | "4k";
-export type StreamFps = 30 | 60 | 90 | 120;
+/**
+ * Target frame rate in FPS. Free-form up to 500 to match the highest
+ * refresh-rate displays/benchmarks, like Moonlight/Sunshine expose —
+ * the actually achieved rate is still capped by the host's monitor
+ * refresh rate, GPU/encoder, and network conditions.
+ */
+export type StreamFps = number;
 export type StreamCodec = "h264" | "h265" | "av1";
+/** Encoder trade-off: prioritize picture quality vs. frame rate/latency when bandwidth is tight. */
+export type StreamLatencyMode = "quality" | "balanced" | "latency";
 
 export interface StreamSettings {
   resolution: StreamResolution;
@@ -93,6 +114,10 @@ export interface StreamSettings {
   hardwareDecode: boolean;
   hostAudio: boolean;
   vsync: boolean;
+  /** Encoder degradation preference: keep resolution vs. keep frame rate. */
+  latencyMode: StreamLatencyMode;
+  /** Auto-launch Steam Big Picture mode on the host when a session starts. */
+  launchBigPicture: boolean;
 }
 
 export type StreamSessionStatus =
@@ -137,4 +162,6 @@ export const DEFAULT_STREAM_SETTINGS: StreamSettings = {
   hardwareDecode: true,
   hostAudio: true,
   vsync: false,
+  latencyMode: "balanced",
+  launchBigPicture: false,
 };

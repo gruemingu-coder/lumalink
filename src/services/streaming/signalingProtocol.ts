@@ -37,6 +37,34 @@ export interface RemoteGameSummary {
   title: string;
 }
 
+/**
+ * Sentinel `gameId` used for "일반 원격 데스크탑" sessions — stream
+ * whatever is currently on screen instead of launching a specific
+ * Steam game first.
+ */
+export const DESKTOP_MODE_GAME_ID = "desktop";
+
+/**
+ * Capture/encode preferences the client asks the host to apply for a
+ * streaming session. The host treats these as best-effort hints (the
+ * actual achieved FPS/bitrate is limited by the host's display,
+ * GPU/encoder, and network conditions) — see `StreamSettings` in
+ * `@/types/domain` for the client-side settings these are derived
+ * from.
+ */
+export interface RemoteQualitySettings {
+  resolution: "720p" | "1080p" | "1440p" | "4k";
+  /** Target frame rate. UI allows up to 500; real hardware/network caps apply. */
+  fps: number;
+  bitrateMbps: number;
+  codec: "h264" | "h265" | "av1";
+  hostAudio: boolean;
+  /** Launch Steam Big Picture mode when the session starts. */
+  launchBigPicture: boolean;
+  /** Encoder trade-off: prioritize resolution/quality vs. frame rate/latency. */
+  latencyMode: "quality" | "balanced" | "latency";
+}
+
 /** Sent by a client immediately after the WebSocket opens. */
 export interface AuthMessage {
   type: "auth";
@@ -48,6 +76,8 @@ export interface AuthMessage {
 export interface AuthOkMessage {
   type: "auth-ok";
   hostName: string;
+  /** Host's LAN MAC address, if it could be determined — used for Wake-on-LAN. */
+  macAddress?: string | null;
 }
 
 export interface AuthFailMessage {
@@ -55,10 +85,18 @@ export interface AuthFailMessage {
   reason: string;
 }
 
-/** Client -> Host (via relay). Client is always the WebRTC offerer. */
+/**
+ * Client -> Host (via relay). Client is always the WebRTC offerer.
+ * `gameId` tells the host what to launch before sharing starts
+ * (a `steam-<appid>` id, or `DESKTOP_MODE_GAME_ID` / omitted for a
+ * plain desktop-mirroring session). `quality` carries the capture
+ * preferences described above.
+ */
 export interface OfferMessage {
   type: "offer";
   sdp: string;
+  gameId?: string | null;
+  quality?: RemoteQualitySettings;
 }
 
 /** Host -> Client (via relay). */

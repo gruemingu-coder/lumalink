@@ -1,4 +1,6 @@
+mod discovery;
 mod input;
+mod network;
 mod signaling;
 mod state;
 mod steam;
@@ -29,6 +31,16 @@ fn launch_game(game_id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn launch_big_picture() -> Result<(), String> {
+    steam::launch_big_picture()
+}
+
+#[tauri::command]
+fn get_mac_address() -> Option<String> {
+    network::primary_mac_address()
+}
+
+#[tauri::command]
 fn inject_input(event: input::InputEvent) -> Result<(), String> {
     input::inject(event)
 }
@@ -38,10 +50,16 @@ fn signaling_port() -> u16 {
     signaling::SIGNALING_PORT
 }
 
+#[tauri::command]
+fn get_client_count(state: tauri::State<Arc<SignalingState>>) -> usize {
+    state.client_count()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let shared_state = Arc::new(SignalingState::new());
     let relay_state = shared_state.clone();
+    let discovery_state = shared_state.clone();
 
     tauri::Builder::default()
         .manage(shared_state)
@@ -50,11 +68,15 @@ pub fn run() {
             regenerate_pin,
             get_installed_games,
             launch_game,
+            launch_big_picture,
+            get_mac_address,
             inject_input,
-            signaling_port
+            signaling_port,
+            get_client_count
         ])
         .setup(move |_app| {
             tauri::async_runtime::spawn(signaling::run(relay_state));
+            tauri::async_runtime::spawn(discovery::run(discovery_state));
             Ok(())
         })
         .run(tauri::generate_context!())

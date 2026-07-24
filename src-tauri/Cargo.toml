@@ -1,6 +1,6 @@
 [package]
 name = "lumalink"
-version = "0.1.0"
+version = "0.2.0"
 description = "LumaLink Streaming App - native desktop client for the LumaLink remote game streaming demo."
 authors = ["LumaLink"]
 edition = "2021"

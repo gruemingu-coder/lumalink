@@ -8,6 +8,8 @@ import {
 export interface RealHostHandshakeResult {
   hostName: string;
   games: RemoteGameSummary[];
+  /** Host's LAN MAC address, if it could be determined — used for Wake-on-LAN. */
+  macAddress: string | null;
 }
 
 export class RealHostAuthError extends Error {}
@@ -31,6 +33,7 @@ export function connectToRealHost(
   return new Promise((resolve, reject) => {
     let settled = false;
     let games: RemoteGameSummary[] = [];
+    let macAddress: string | null = null;
     let ws: WebSocket;
 
     const finish = (fn: () => void) => {
@@ -81,12 +84,13 @@ export function connectToRealHost(
 
       if (msg.type === "auth-ok") {
         const hostName = msg.hostName;
+        macAddress = msg.macAddress ?? null;
         // Give the host a brief window to also send its "games" message
         // (sent right after auth-ok) before we resolve and close.
         window.setTimeout(() => {
           finish(() => {
             ws.close();
-            resolve({ hostName, games });
+            resolve({ hostName, games, macAddress });
           });
         }, 500);
       }

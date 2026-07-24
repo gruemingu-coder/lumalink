@@ -12,6 +12,7 @@ import {
   encodeSignalingMessage,
   type IceCandidateInit,
   type RemoteGameSummary,
+  type RemoteQualitySettings,
 } from "./signalingProtocol";
 
 const ICE_SERVERS: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
@@ -39,6 +40,8 @@ export class WebRtcStreamingEngine implements StreamingEngine {
 
   private settings: StreamSettings | null = null;
 
+  private gameId: string | null = null;
+
   private status: StreamSessionStatus = "idle";
 
   private statusListeners = new Set<(status: StreamSessionStatus) => void>();
@@ -62,6 +65,7 @@ export class WebRtcStreamingEngine implements StreamingEngine {
     }
 
     this.settings = config.settings;
+    this.gameId = config.gameId;
     this.setStatus("negotiating");
 
     this.pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
@@ -71,8 +75,9 @@ export class WebRtcStreamingEngine implements StreamingEngine {
     this.wireDataChannel(this.dataChannel);
 
     // Client is receive-only for media; input travels over the data channel.
-    this.pc.addTransceiver("video", { direction: "recvonly" });
+    const videoTransceiver = this.pc.addTransceiver("video", { direction: "recvonly" });
     this.pc.addTransceiver("audio", { direction: "recvonly" });
+    preferH264(videoTransceiver);
 
     await this.openSignaling(realHost);
   }
@@ -194,6 +199,13 @@ export class WebRtcStreamingEngine implements StreamingEngine {
         this.videoEl.srcObject = event.streams[0] ?? new MediaStream([event.track]);
         void this.videoEl.play().catch(() => undefined);
       }
+      // Ask the jitter buffer to hold as little as possible — trades a
+      // bit of resilience to network jitter for lower glass-to-glass
+      // latency, which matters much more for interactive input.
+      const receiverWithHint = event.receiver as RTCRtpReceiver & { playoutDelayHint?: number };
+      if ("playoutDelayHint" in event.receiver) {
+        receiverWithHint.playoutDelayHint = this.settings?.latencyMode === "quality" ? 0.1 : 0;
+      }
       this.setStatus("streaming");
       this.startStatsLoop();
     };
@@ -219,11 +231,31 @@ export class WebRtcStreamingEngine implements StreamingEngine {
       const offer = await this.pc.createOffer();
       await this.pc.setLocalDescription(offer);
       if (this.ws.readyState === WebSocket.OPEN && offer.sdp) {
-        this.ws.send(encodeSignalingMessage({ type: "offer", sdp: offer.sdp }));
+        this.ws.send(
+          encodeSignalingMessage({
+            type: "offer",
+            sdp: offer.sdp,
+            gameId: this.gameId,
+            quality: this.buildQualitySettings(),
+          })
+        );
       }
     } catch {
       this.setStatus("error");
     }
+  }
+
+  private buildQualitySettings(): RemoteQualitySettings | undefined {
+    if (!this.settings) return undefined;
+    return {
+      resolution: this.settings.resolution,
+      fps: this.settings.fps,
+      bitrateMbps: this.settings.bitrateMbps,
+      codec: this.settings.codec,
+      hostAudio: this.settings.hostAudio,
+      launchBigPicture: this.settings.launchBigPicture,
+      latencyMode: this.settings.latencyMode,
+    };
   }
 
   async disconnect(): Promise<void> {
@@ -376,6 +408,34 @@ function inferResolutionLabel(width: number, height: number): StreamResolution {
   if (pixels >= 2560 * 1440 * 0.8) return "1440p";
   if (pixels >= 1920 * 1080 * 0.8) return "1080p";
   return "720p";
+}
+
+/**
+ * Sorts H.264 first in the transceiver's codec negotiation order.
+ * Chromium (and therefore WebView2, which the desktop apps embed) can
+ * use GPU hardware acceleration for H.264 encode/decode on most
+ * systems, whereas VP8/VP9 are software-only — preferring H.264 gives
+ * the best shot at low-latency, high-framerate hardware encoding
+ * without hand-rolling a native capture/encode pipeline.
+ */
+function preferH264(transceiver: RTCRtpTransceiver): void {
+  const RTCRtpReceiverCtor = window.RTCRtpReceiver as
+    | (typeof RTCRtpReceiver & { getCapabilities?: (kind: string) => RTCRtpCapabilities | null })
+    | undefined;
+  const capabilities = RTCRtpReceiverCtor?.getCapabilities?.("video");
+  if (!capabilities || typeof transceiver.setCodecPreferences !== "function") return;
+
+  const h264 = capabilities.codecs.filter((c) => c.mimeType.toLowerCase() === "video/h264");
+  const rest = capabilities.codecs.filter((c) => c.mimeType.toLowerCase() !== "video/h264");
+  if (h264.length === 0) return;
+
+  try {
+    transceiver.setCodecPreferences([...h264, ...rest]);
+  } catch {
+    // Some browsers reject this before the transceiver is fully set up
+    // in certain states — non-fatal, negotiation just falls back to
+    // the default codec order.
+  }
 }
 
 function toRtcIceCandidate(candidate: IceCandidateInit): RTCIceCandidateInit {

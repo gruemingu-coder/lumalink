@@ -15,11 +15,31 @@ Runs on the gaming PC you want to stream **from**. Built with
   PIN and sends a WebRTC offer, this app calls the browser/webview's
   own `navigator.mediaDevices.getDisplayMedia()` to **really** capture
   the screen (and system audio, where supported) and streams it back
-  over a real `RTCPeerConnection` — no mock renderer.
+  over a real `RTCPeerConnection` — no mock renderer. The screen is
+  captured once and shared across every connected client.
+- **Supports multiple simultaneous clients** on the same PIN — the
+  relay tags every message with a `clientId` so this app can run one
+  independent `RTCPeerConnection` per connected client (see
+  `signaling.rs` / `state.rs`).
+- Applies the client's requested resolution/FPS/bitrate/quality
+  trade-off to the capture + `RTCRtpSender` (`maxFramerate`,
+  `maxBitrate`, `degradationPreference`, H.264 codec preference,
+  `contentHint: "motion"`) — the highest FPS actually achieved still
+  depends on the host's monitor, GPU/encoder, and network.
 - Receives mouse/keyboard events from the client over an `RTCDataChannel`
   and injects them into the OS using the [`enigo`](https://docs.rs/enigo)
   crate, so the remote client can genuinely control this PC.
-- Can launch a selected Steam game via `steam://run/<appid>`.
+- Can launch a selected Steam game via `steam://run/<appid>`, switch
+  Steam into Big Picture mode (`steam://open/bigpicture`, manually or
+  automatically when a client requests it), or skip launching anything
+  for a plain "데스크탑 전체 화면 스트리밍" session.
+- Broadcasts a small UDP announcement every 2s (`discovery.rs`, port
+  58713) so the LumaLink Streaming *desktop* app can auto-discover this
+  PC on the LAN instead of requiring a manually typed IP address. The
+  announcement never includes the PIN.
+- Reports this PC's MAC address during pairing so the Streaming desktop
+  app can send a Wake-on-LAN magic packet later, if the PC's network
+  adapter has WOL enabled.
 
 ## Architecture
 
@@ -73,11 +93,21 @@ The `.msi` is written to `src-tauri/target/release/bundle/msi/`.
 
 - **LAN only.** Signaling is plain `ws://` with no TLS and only PIN-based
   auth — do not port-forward this to the public internet.
-- **One client at a time.** The relay only tracks a single host and a
-  single client connection.
 - **No NAT traversal.** Only STUN is configured, no TURN — this targets
   same-network streaming, matching LumaLink's "low latency on my LAN"
   positioning, not internet-wide play.
+- **FPS is a target, not a guarantee.** The UI allows requesting up to
+  500 FPS to match Moonlight/Sunshine-style sliders, but the actual
+  rate is bounded by the host's monitor refresh rate, `getDisplayMedia`
+  + WebRTC's browser-native (not custom GPU/DXGI) capture pipeline, and
+  the GPU's hardware H.264 encoder, if any. True Moonlight-class
+  capture (Desktop Duplication API + NVENC/AMF) would require replacing
+  this app's capture path with native Rust code — noted as a future
+  direction, not implemented here.
+- **Wake-on-LAN only wakes what the NIC/BIOS allow.** LumaLink can send
+  the magic packet from the Streaming desktop app, but the host PC's
+  network adapter must have WOL enabled in Windows device settings
+  and/or BIOS for it to actually work.
 - **Rust code in this app has not been compiled in the environment that
   generated it** (sandboxed dev environment without a working shell).
   Run `cargo check` / `npm run tauri:build` locally, or rely on the

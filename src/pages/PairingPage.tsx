@@ -1,9 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppState } from "@/state/AppStateContext";
 import { MockPairingService } from "@/services/pairing/PairingService";
 import { mockDiscoverableDevices } from "@/data/mockDevices";
 import { connectToRealHost, RealHostAuthError } from "@/services/pairing/realHostClient";
+import {
+  discoverHostsOnLan,
+  isLanDiscoverySupported,
+  type DiscoveredHost,
+} from "@/services/pairing/discoverHosts";
 import { SIGNALING_PORT } from "@/services/streaming/signalingProtocol";
 import type { DiscoveredDevice } from "@/types/domain";
 import { Card } from "@/components/ui/Card";
@@ -28,10 +33,35 @@ export function PairingPage() {
   const [mode, setMode] = useState<PairingMode>("demo");
 
   const [realAddress, setRealAddress] = useState("");
+  const [realSignalPort, setRealSignalPort] = useState(SIGNALING_PORT);
   const [realPin, setRealPin] = useState("");
   const [isConnectingReal, setIsConnectingReal] = useState(false);
   const [realError, setRealError] = useState<string | null>(null);
   const [realPairedName, setRealPairedName] = useState("");
+
+  const [lanSupported, setLanSupported] = useState(false);
+  const [lanHosts, setLanHosts] = useState<DiscoveredHost[] | null>(null);
+  const [isDiscoveringLan, setIsDiscoveringLan] = useState(false);
+
+  useEffect(() => {
+    void isLanDiscoverySupported().then(setLanSupported);
+  }, []);
+
+  const runLanDiscovery = async () => {
+    setIsDiscoveringLan(true);
+    setLanHosts(null);
+    try {
+      const hosts = await discoverHostsOnLan();
+      setLanHosts(hosts);
+    } finally {
+      setIsDiscoveringLan(false);
+    }
+  };
+
+  const handleSelectLanHost = (host: DiscoveredHost) => {
+    setRealAddress(host.address);
+    setRealSignalPort(host.signalPort);
+  };
 
   const handleConnectReal = async () => {
     if (!realAddress.trim() || realPin.length !== 4) return;
@@ -39,7 +69,7 @@ export function PairingPage() {
     setRealError(null);
     try {
       const address = realAddress.trim();
-      const result = await connectToRealHost(address, realPin, "LumaLink Web");
+      const result = await connectToRealHost(address, realPin, "LumaLink Web", realSignalPort);
       const id = `real-${address}`;
       addDevice({
         id,
@@ -51,8 +81,9 @@ export function PairingPage() {
         pairedAt: new Date().toISOString(),
         lastSeenAt: new Date().toISOString(),
         isReal: true,
-        signalPort: SIGNALING_PORT,
+        signalPort: realSignalPort,
         pairingPin: realPin,
+        macAddress: result.macAddress,
       });
       setRealGames(id, result.games);
       setRealPairedName(result.hostName || address);
@@ -69,9 +100,11 @@ export function PairingPage() {
 
   const resetRealForm = () => {
     setRealAddress("");
+    setRealSignalPort(SIGNALING_PORT);
     setRealPin("");
     setRealError(null);
     setRealPairedName("");
+    setLanHosts(null);
   };
 
   const pairingService = useMemo(() => {
@@ -184,6 +217,47 @@ export function PairingPage() {
                 호스트 PC에서 LumaLink Host 앱을 실행하면 IP 주소와 PIN이 표시됩니다. 두 기기가 같은
                 LAN/Wi-Fi에 연결되어 있어야 합니다.
               </p>
+
+              {lanSupported ? (
+                <div className="mt-5 rounded-xl border border-base-700 bg-base-800/40 p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-medium text-slate-300">같은 Wi-Fi/LAN에서 자동 검색</p>
+                    <Button size="sm" variant="secondary" isLoading={isDiscoveringLan} onClick={runLanDiscovery}>
+                      검색
+                    </Button>
+                  </div>
+                  {lanHosts && lanHosts.length === 0 && !isDiscoveringLan && (
+                    <p className="mt-2 text-xs text-slate-500">
+                      검색된 호스트가 없습니다. 호스트 PC에서 LumaLink Host 앱이 실행 중인지 확인하세요.
+                    </p>
+                  )}
+                  {lanHosts && lanHosts.length > 0 && (
+                    <ul className="mt-2 space-y-1.5">
+                      {lanHosts.map((host) => (
+                        <li key={host.address}>
+                          <button
+                            type="button"
+                            onClick={() => handleSelectLanHost(host)}
+                            className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+                              realAddress === host.address
+                                ? "border-brand-500 bg-brand-500/10 text-slate-100"
+                                : "border-base-600 text-slate-300 hover:border-brand-500/60"
+                            }`}
+                          >
+                            <span className="font-medium">{host.name}</span>
+                            <span className="text-xs text-slate-500">{host.address}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : (
+                <p className="mt-5 rounded-xl border border-base-700 bg-base-800/40 p-3 text-center text-[11px] text-slate-500">
+                  자동 검색은 LumaLink Streaming 데스크톱 앱에서만 지원됩니다. 웹에서는 IP 주소를
+                  직접 입력해주세요.
+                </p>
+              )}
 
               <div className="mt-5 space-y-4 text-left">
                 <div>

@@ -16,13 +16,16 @@ interface DeviceCardProps {
   device: PcDevice;
   onRemove: (deviceId: string) => void;
   onWake?: (deviceId: string) => void;
+  isWaking?: boolean;
 }
 
-export function DeviceCard({ device, onRemove, onWake }: DeviceCardProps) {
+export function DeviceCard({ device, onRemove, onWake, isWaking }: DeviceCardProps) {
   const navigate = useNavigate();
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const meta = statusMeta[device.status];
   const isReachable = device.status !== "offline";
+  const canWake =
+    device.status === "sleeping" || (device.isReal && Boolean(device.macAddress) && !isReachable);
 
   return (
     <Card className="flex flex-col gap-4 p-5">
@@ -76,8 +79,13 @@ export function DeviceCard({ device, onRemove, onWake }: DeviceCardProps) {
         >
           {isReachable ? "라이브러리 열기" : "연결 불가"}
         </Button>
-        {device.status === "sleeping" && onWake && (
-          <Button size="sm" variant="secondary" onClick={() => onWake(device.id)}>
+        {canWake && onWake && (
+          <Button
+            size="sm"
+            variant="secondary"
+            isLoading={isWaking}
+            onClick={() => onWake(device.id)}
+          >
             깨우기
           </Button>
         )}

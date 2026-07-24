@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAppState } from "@/state/AppStateContext";
-import type { StreamCodec, StreamFps, StreamResolution } from "@/types/domain";
+import type { StreamCodec, StreamLatencyMode, StreamResolution } from "@/types/domain";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Toggle } from "@/components/ui/Toggle";
@@ -14,17 +14,18 @@ const resolutionOptions: { value: StreamResolution; label: string }[] = [
   { value: "4k", label: "4K (UHD)" },
 ];
 
-const fpsOptions: { value: StreamFps; label: string }[] = [
-  { value: 30, label: "30 FPS" },
-  { value: 60, label: "60 FPS" },
-  { value: 90, label: "90 FPS" },
-  { value: 120, label: "120 FPS" },
-];
+const FPS_PRESETS = [30, 60, 90, 120, 144, 165, 240, 360, 500];
 
 const codecOptions: { value: StreamCodec; label: string }[] = [
-  { value: "h264", label: "H.264 (호환성 우선)" },
+  { value: "h264", label: "H.264 (호환성 우선, 하드웨어 인코딩 가능성 최고)" },
   { value: "h265", label: "H.265 / HEVC (권장)" },
   { value: "av1", label: "AV1 (최신 GPU 전용)" },
+];
+
+const latencyModeOptions: { value: StreamLatencyMode; label: string }[] = [
+  { value: "quality", label: "화질 우선" },
+  { value: "balanced", label: "균형" },
+  { value: "latency", label: "지연 최소화 (프레임레이트 우선)" },
 ];
 
 export function SettingsPage() {
@@ -63,16 +64,6 @@ export function SettingsPage() {
               }}
             />
             <Select
-              id="fps"
-              label="프레임레이트"
-              value={settings.fps}
-              options={fpsOptions}
-              onChange={(v) => {
-                updateSettings({ fps: v });
-                flashSaved();
-              }}
-            />
-            <Select
               id="codec"
               label="비디오 코덱"
               value={settings.codec}
@@ -82,7 +73,62 @@ export function SettingsPage() {
                 flashSaved();
               }}
             />
-            <div className="py-1">
+            <Select
+              id="latency-mode"
+              label="인코더 우선순위"
+              value={settings.latencyMode}
+              options={latencyModeOptions}
+              onChange={(v) => {
+                updateSettings({ latencyMode: v });
+                flashSaved();
+              }}
+            />
+            <div className="py-1 sm:col-span-2">
+              <label htmlFor="fps" className="mb-1 block text-sm font-medium text-slate-200">
+                최대 프레임레이트: <span className="text-brand-300">{settings.fps} FPS</span>
+              </label>
+              <input
+                id="fps"
+                type="range"
+                min={30}
+                max={500}
+                step={5}
+                value={settings.fps}
+                onChange={(e) => updateSettings({ fps: Number(e.target.value) })}
+                onMouseUp={flashSaved}
+                onTouchEnd={flashSaved}
+                className="w-full accent-brand-500"
+              />
+              <div className="mt-1 flex justify-between text-[10px] text-slate-500">
+                <span>30</span>
+                <span>500 FPS</span>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {FPS_PRESETS.map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => {
+                      updateSettings({ fps: preset });
+                      flashSaved();
+                    }}
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                      settings.fps === preset
+                        ? "bg-brand-600 text-white"
+                        : "bg-base-800 text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-[11px] leading-relaxed text-slate-600">
+                여기서 설정한 값은 호스트에 전달되는 목표치입니다. 실제로 달성되는 프레임레이트는
+                호스트 모니터 주사율, GPU 인코더 성능, 네트워크 대역폭에 따라 이보다 낮을 수
+                있습니다.
+              </p>
+            </div>
+            <div className="py-1 sm:col-span-2">
               <label htmlFor="bitrate" className="mb-1 block text-sm font-medium text-slate-200">
                 비트레이트: <span className="text-brand-300">{settings.bitrateMbps} Mbps</span>
               </label>
@@ -90,7 +136,7 @@ export function SettingsPage() {
                 id="bitrate"
                 type="range"
                 min={5}
-                max={100}
+                max={300}
                 step={5}
                 value={settings.bitrateMbps}
                 onChange={(e) => updateSettings({ bitrateMbps: Number(e.target.value) })}
@@ -100,7 +146,7 @@ export function SettingsPage() {
               />
               <div className="mt-1 flex justify-between text-[10px] text-slate-500">
                 <span>5</span>
-                <span>100 Mbps</span>
+                <span>300 Mbps</span>
               </div>
             </div>
           </div>
@@ -138,6 +184,16 @@ export function SettingsPage() {
               }}
               label="수직 동기화(V-Sync)"
               description="화면 찢김을 줄이지만 입력 지연이 소폭 늘어날 수 있습니다."
+            />
+            <Toggle
+              id="launch-big-picture"
+              checked={settings.launchBigPicture}
+              onChange={(v) => {
+                updateSettings({ launchBigPicture: v });
+                flashSaved();
+              }}
+              label="Steam 빅픽처 모드 자동 실행"
+              description="실기 연결된 호스트에서 스트리밍을 시작할 때 Steam을 빅픽처 모드로 엽니다."
             />
           </div>
         </Card>

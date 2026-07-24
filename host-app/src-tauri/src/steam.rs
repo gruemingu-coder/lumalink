@@ -63,11 +63,21 @@ pub fn launch_game(game_id: &str) -> Result<(), String> {
     let app_id = game_id
         .strip_prefix("steam-")
         .ok_or_else(|| "알 수 없는 게임 ID입니다.".to_string())?;
+    open_steam_uri(&format!("steam://run/{app_id}"))
+}
 
+/// Switches Steam into "Big Picture" mode — its gamepad-friendly,
+/// full-screen UI. Handy for controller-based play and for making a
+/// streamed session feel more like a console.
+pub fn launch_big_picture() -> Result<(), String> {
+    open_steam_uri("steam://open/bigpicture")
+}
+
+fn open_steam_uri(uri: &str) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
         std::process::Command::new("cmd")
-            .args(["/c", "start", "", &format!("steam://run/{app_id}")])
+            .args(["/c", "start", "", uri])
             .spawn()
             .map_err(|e| e.to_string())?;
         Ok(())
@@ -75,8 +85,8 @@ pub fn launch_game(game_id: &str) -> Result<(), String> {
 
     #[cfg(not(target_os = "windows"))]
     {
-        let _ = app_id;
-        Err("게임 실행은 현재 Windows 호스트에서만 지원됩니다.".to_string())
+        let _ = uri;
+        Err("Steam 실행/제어는 현재 Windows 호스트에서만 지원됩니다.".to_string())
     }
 }
 

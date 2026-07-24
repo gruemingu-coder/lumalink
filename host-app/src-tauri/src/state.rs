@@ -1,17 +1,23 @@
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use tokio::sync::mpsc::UnboundedSender;
 
 /// Shared between the Tauri commands (called from the host's own webview
 /// UI) and the background WebSocket signaling relay (`signaling.rs`).
 ///
-/// `host_tx` / `client_tx` hold a channel to whichever single host/client
-/// WebSocket connection is currently open, so text frames received on one
-/// socket can be relayed to the other. Only one client is supported at a
-/// time in this demo-grade implementation.
+/// `host_tx` holds a channel to the host's own webview connection.
+/// `clients` maps each connected client's `clientId` to a channel for
+/// its socket, so the relay can support **multiple simultaneous
+/// clients** sharing the one PIN — every relayed message between the
+/// host and a client is tagged with that client's id (see
+/// `signalingProtocol.ts`'s doc comment) so the host's webview (which
+/// runs one `RTCPeerConnection` per client) can tell sessions apart.
 pub struct SignalingState {
     pub pin: Mutex<String>,
     pub host_tx: Mutex<Option<UnboundedSender<String>>>,
-    pub client_tx: Mutex<Option<UnboundedSender<String>>>,
+    pub clients: Mutex<HashMap<String, UnboundedSender<String>>>,
+    next_client_id: AtomicU64,
 }
 
 impl SignalingState {
@@ -19,8 +25,18 @@ impl SignalingState {
         Self {
             pin: Mutex::new(generate_pin()),
             host_tx: Mutex::new(None),
-            client_tx: Mutex::new(None),
+            clients: Mutex::new(HashMap::new()),
+            next_client_id: AtomicU64::new(1),
         }
+    }
+
+    pub fn next_client_id(&self) -> String {
+        let n = self.next_client_id.fetch_add(1, Ordering::Relaxed);
+        format!("c{n}")
+    }
+
+    pub fn client_count(&self) -> usize {
+        self.clients.lock().unwrap().len()
     }
 }
 

@@ -1,13 +1,18 @@
 //! Minimal WebSocket signaling relay for LumaLink.
 //!
-//! This server does NOT speak WebRTC itself — it just authenticates a
-//! connecting client with a PIN and pipes JSON text frames between
-//! exactly one "host" connection (this app's own webview, which does the
-//! actual `getDisplayMedia()` + `RTCPeerConnection` work in JS) and one
-//! "client" connection (a remote LumaLink Streaming App / browser tab).
+//! This server does NOT speak WebRTC itself — it just authenticates
+//! connecting clients with a shared PIN and pipes JSON text frames
+//! between exactly one "host" connection (this app's own webview,
+//! which does the actual `getDisplayMedia()` + `RTCPeerConnection`
+//! work in JS) and any number of "client" connections (remote
+//! LumaLink Streaming App / browser tabs), tagging each relayed
+//! message with a `clientId` so the host can run one
+//! `RTCPeerConnection` per connected client.
 //!
 //! See `src/services/streaming/signalingProtocol.ts` in the main
-//! LumaLink repo for the shared message shapes this relays untouched.
+//! LumaLink repo for the shared message shapes used on the relay <->
+//! CLIENT leg, and this crate's own `signalingProtocol.ts` doc comment
+//! for how the relay <-> HOST leg adds `clientId`.
 
 use axum::{
     extract::ws::{Message, WebSocket, WebSocketUpgrade},
@@ -17,9 +22,11 @@ use axum::{
     Router,
 };
 use futures_util::{SinkExt, StreamExt};
+use serde_json::Value;
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 use tokio::sync::mpsc;
 
+use crate::network::primary_mac_address;
 use crate::state::SignalingState;
 
 /// Fixed LAN port the host app listens on. Kept in sync with
@@ -70,16 +77,32 @@ async fn handle_socket(socket: WebSocket, params: HashMap<String, String>, state
     }
 
     let (tx, mut rx) = mpsc::unbounded_channel::<String>();
+    // Only meaningful for `role == "client"`; used to tag/route messages
+    // to/from this specific session on the host <-> relay leg.
+    let client_id: Option<String> = if role == "host" {
+        None
+    } else {
+        Some(state.next_client_id())
+    };
 
     if role == "host" {
         *state.host_tx.lock().unwrap() = Some(tx.clone());
     } else {
-        *state.client_tx.lock().unwrap() = Some(tx.clone());
-        let ok = serde_json::json!({ "type": "auth-ok", "hostName": host_display_name() });
+        let id = client_id.clone().expect("client role always has a client_id");
+        state.clients.lock().unwrap().insert(id.clone(), tx.clone());
+
+        let ok = serde_json::json!({
+            "type": "auth-ok",
+            "hostName": host_display_name(),
+            "macAddress": primary_mac_address(),
+        });
         let _ = tx.send(ok.to_string());
+
         let host_tx = state.host_tx.lock().unwrap().clone();
         if let Some(host_tx) = host_tx {
-            let _ = host_tx.send(serde_json::json!({ "type": "client-connected" }).to_string());
+            let _ = host_tx.send(
+                serde_json::json!({ "type": "client-connected", "clientId": id }).to_string(),
+            );
         }
     }
 
@@ -93,16 +116,29 @@ async fn handle_socket(socket: WebSocket, params: HashMap<String, String>, state
 
     let relay_role = role.clone();
     let relay_state = state.clone();
+    let relay_client_id = client_id.clone();
     let mut recv_task = tokio::spawn(async move {
         while let Some(Ok(msg)) = receiver.next().await {
-            if let Message::Text(text) = msg {
-                let other = if relay_role == "host" {
-                    relay_state.client_tx.lock().unwrap().clone()
-                } else {
-                    relay_state.host_tx.lock().unwrap().clone()
+            let Message::Text(text) = msg else { continue };
+
+            if relay_role == "host" {
+                // Host -> one specific client, selected by the
+                // `clientId` field the host's webview must include.
+                let Some(target_id) = extract_client_id(&text) else {
+                    continue;
                 };
-                if let Some(other_tx) = other {
-                    let _ = other_tx.send(text);
+                let target_tx = relay_state.clients.lock().unwrap().get(&target_id).cloned();
+                if let Some(target_tx) = target_tx {
+                    let _ = target_tx.send(text);
+                }
+            } else {
+                // Client -> host. Tag the message with this client's id
+                // so the host knows which session it belongs to.
+                let Some(id) = &relay_client_id else { continue };
+                let tagged = tag_client_id(&text, id);
+                let host_tx = relay_state.host_tx.lock().unwrap().clone();
+                if let Some(host_tx) = host_tx {
+                    let _ = host_tx.send(tagged);
                 }
             }
         }
@@ -116,17 +152,45 @@ async fn handle_socket(socket: WebSocket, params: HashMap<String, String>, state
     // Cleanup once either side of the pipe closes.
     if role == "host" {
         *state.host_tx.lock().unwrap() = None;
-    } else {
-        *state.client_tx.lock().unwrap() = None;
+        // The host app going away ends every in-flight session.
+        let clients = state.clients.lock().unwrap().clone();
+        for (_, client_tx) in clients {
+            let _ = client_tx.send(serde_json::json!({ "type": "peer-left" }).to_string());
+        }
+    } else if let Some(id) = client_id {
+        state.clients.lock().unwrap().remove(&id);
         let host_tx = state.host_tx.lock().unwrap().clone();
         if let Some(host_tx) = host_tx {
-            let _ = host_tx.send(serde_json::json!({ "type": "peer-left" }).to_string());
+            let _ = host_tx.send(
+                serde_json::json!({ "type": "peer-left", "clientId": id }).to_string(),
+            );
         }
     }
 }
 
-fn host_display_name() -> String {
+pub fn host_display_name() -> String {
     std::env::var("COMPUTERNAME")
         .or_else(|_| std::env::var("HOSTNAME"))
         .unwrap_or_else(|_| "LumaLink Host".to_string())
+}
+
+/// Reads the `clientId` string field out of a raw JSON text frame sent
+/// by the host, without needing to know the full message shape.
+fn extract_client_id(text: &str) -> Option<String> {
+    let value: Value = serde_json::from_str(text).ok()?;
+    value.get("clientId")?.as_str().map(|s| s.to_string())
+}
+
+/// Adds/overwrites a `clientId` field on a raw JSON text frame sent by
+/// a client, before forwarding it to the host. Falls back to the
+/// original text untouched if it isn't a JSON object (shouldn't
+/// happen for well-formed clients).
+fn tag_client_id(text: &str, client_id: &str) -> String {
+    let Ok(mut value) = serde_json::from_str::<Value>(text) else {
+        return text.to_string();
+    };
+    if let Value::Object(map) = &mut value {
+        map.insert("clientId".to_string(), Value::String(client_id.to_string()));
+    }
+    value.to_string()
 }

@@ -133,6 +133,25 @@ export function DownloadPage() {
             않은 로컬 WebSocket). 공용 인터넷으로 포트를 개방하지 마세요.
           </p>
         </Card>
+
+        <Card className="mt-6 p-6">
+          <h2 className="text-base font-semibold text-slate-100">저작권 · 독립성 고지</h2>
+          <ul className="mt-3 space-y-2 text-xs leading-relaxed text-slate-500">
+            <li>
+              LumaLink는 <span className="text-slate-300">독립적인 프로젝트</span>이며 특정
+              상용/오픈소스 원격 스트리밍 소프트웨어와 제휴·후원·파생 관계가 없습니다.
+            </li>
+            <li>
+              "LumaLink" 이름·로고·UI·코드는 전부 이 프로젝트를 위해 새로 만든{" "}
+              <span className="text-slate-300">오리지널 자산</span>이며, 타사 제품의 이름·로고·
+              문구·이미지·코드를 그대로 사용하지 않습니다.
+            </li>
+            <li>
+              언급될 수 있는 타사 제품명(예: Steam)은 각 소유자의 상표이며, 상호운용성 설명을
+              위해서만 인용됩니다.
+            </li>
+          </ul>
+        </Card>
       </main>
     </div>
   );

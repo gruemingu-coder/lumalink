@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAppState } from "@/state/AppStateContext";
+import { sendWakeOnLan, WakeOnLanUnavailableError } from "@/services/host/wakeOnLan";
 import { DeviceCard } from "@/components/devices/DeviceCard";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -13,6 +14,8 @@ export function DevicesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [wakingId, setWakingId] = useState<string | null>(null);
+  const [wakeMessage, setWakeMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 650);
@@ -36,8 +39,29 @@ export function DevicesPage() {
     }, 900);
   };
 
-  const handleWake = (deviceId: string) => {
-    updateDeviceStatus(deviceId, "online");
+  const handleWake = async (deviceId: string) => {
+    const device = devices.find((d) => d.id === deviceId);
+    if (!device?.isReal || !device.macAddress) {
+      // Demo/mock devices have no real network presence — simulate waking.
+      updateDeviceStatus(deviceId, "online");
+      return;
+    }
+    setWakingId(deviceId);
+    setWakeMessage(null);
+    try {
+      await sendWakeOnLan(device.macAddress);
+      setWakeMessage(
+        `${device.name}(으)로 Wake-on-LAN 패킷을 전송했습니다. PC의 WOL 설정에 따라 부팅까지 시간이 걸릴 수 있습니다.`
+      );
+    } catch (err) {
+      setWakeMessage(
+        err instanceof WakeOnLanUnavailableError || err instanceof Error
+          ? err.message
+          : "PC 깨우기에 실패했습니다."
+      );
+    } finally {
+      setWakingId(null);
+    }
   };
 
   return (
@@ -74,6 +98,12 @@ export function DevicesPage() {
         />
       )}
 
+      {wakeMessage && (
+        <Card className="mb-6 p-4 text-sm text-slate-300" role="status">
+          {wakeMessage}
+        </Card>
+      )}
+
       {isLoading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-hidden="true">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -105,7 +135,13 @@ export function DevicesPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {devices.map((device) => (
-            <DeviceCard key={device.id} device={device} onRemove={removeDevice} onWake={handleWake} />
+            <DeviceCard
+              key={device.id}
+              device={device}
+              onRemove={removeDevice}
+              onWake={handleWake}
+              isWaking={wakingId === device.id}
+            />
           ))}
         </div>
       )}
