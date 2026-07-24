@@ -2,243 +2,164 @@
 
 **내 PC 게임을 다른 기기에서 낮은 지연으로 플레이.**
 
-LumaLink는 원격 PC 게임 스트리밍 클라이언트의 **독립적인 데모/포트폴리오 프로젝트**입니다.
-Moonlight 등 특정 상용/오픈소스 프로젝트의 이름, 로고, 문구, 이미지, 코드를 그대로 사용하지
-않으며, 모든 UI·브랜딩·코드는 이 프로젝트를 위해 새로 작성되었습니다.
+LumaLink는 원격 PC 게임 스트리밍의 **독립적인 프로젝트**입니다. 어떤 상용/오픈소스
+소프트웨어(예: Moonlight)의 이름, 로고, 문구, 이미지, 코드를 그대로 사용하지 않으며, 모든
+UI·브랜딩·코드는 이 프로젝트를 위해 새로 작성되었습니다.
 
 이 저장소에는 세 부분이 있습니다:
 
 | 부분 | 위치 | 설명 |
 | --- | --- | --- |
-| 웹 앱 / 스트리밍 앱 | `src/` (+ 루트 `src-tauri/`) | React/TS 웹사이트. 데모 PC는 모의(mock) 스트리밍, "IP로 실제 PC 연결"로 페어링한 PC는 **진짜 WebRTC**로 스트리밍합니다. `src-tauri/`를 통해 동일 코드를 Windows용 MSI 데스크톱 앱으로도 빌드할 수 있습니다. |
-| 호스트 앱 | `host-app/` | Tauri + Rust. 게이밍 PC에 설치해 PIN 페어링, Steam 라이브러리 스캔, 실제 화면 캡처(WebRTC 송신), 원격 입력 주입을 수행합니다. MSI로 배포됩니다. |
-| (레거시) 호스트 에이전트 | `host-agent/` | 스트리밍 이전 단계에서 만든 Node.js 기반 프로토타입(HTTP 페어링 + Steam 스캔만, 스트리밍 없음). `host-app/`이 이를 대체하는 정식 경로이며, `host-agent/`는 참고용으로 남겨두었습니다. |
+| 웹사이트 | `src/` (브라우저 빌드) | 소개·다운로드 전용. `/`와 `/download`만 노출하며, 브라우저에서는 스트리밍 UI에 들어가지 않습니다. |
+| 스트리밍 앱 | `src/` + `src-tauri/` | 같은 React UI를 Tauri로 패키징. **계정 로그인 필수**, 클라우드에 등록된 PC 목록 동기화, WebRTC 수신, WOL/LAN 검색. MSI로 배포. |
+| 호스트 앱 | `host-app/` | Tauri + Rust. 게이밍 PC에 설치. **계정 로그인 필수**, PIN 페어링, Steam 스캔, 화면 캡처(WebRTC 송신), 입력 주입, **트레이 백그라운드**, 클라우드 하트비트. MSI로 배포. |
 
-실시간 화면 전송이 필요한 부분(호스트의 화면 캡처, WebRTC 시그널링, 입력 주입)은
-`host-app/`에서 **실제로 동작하도록** 구현했습니다 — 다만 LAN 환경, TURN 서버 없음 등
-데모 수준의 제약이 있습니다. 자세한 내용은 아래 "실제 스트리밍 아키텍처"와
-`host-app/README.md`를 참고하세요.
+계정 API는 Cloudflare Worker + D1 (`worker/`, `migrations/`)로 동작합니다. 정적 사이트와
+같은 Worker가 `/api/*`를 처리합니다.
 
-추가로 다음 기능들이 실제로 동작합니다:
+실제로 동작하는 기능:
 
+- **계정 / 자동 로그인**: 호스트·스트리밍 앱 모두 최초 실행 시 로그인/회원가입. 세션은
+  `tauri-plugin-store`로 저장되어 다음 실행부터 자동 로그인.
+- **클라우드 PC 동기화**: 호스트가 주기적으로 IP/PIN/MAC을 계정에 등록하면, 같은 계정으로
+  로그인한 스트리밍 앱에 자동으로 목록이 표시됩니다.
 - **다중 클라이언트**: 같은 PIN으로 여러 기기가 동시에 한 호스트에 접속할 수 있습니다.
-- **Wi-Fi/LAN 자동 검색**: LumaLink Streaming 데스크톱 앱에서 IP를 직접 입력하지 않고
-  같은 네트워크의 호스트를 자동으로 찾을 수 있습니다(브라우저는 지원 불가 — 원시 UDP
-  API가 없음).
-- **Wake-on-LAN(WOL)**: 페어링 시 호스트의 MAC 주소를 저장해두고, 이후 LumaLink
-  Streaming 데스크톱 앱에서 매직 패킷을 보내 PC를 깨울 수 있습니다.
-- **Steam 빅픽처 모드**: 스트리밍 시작 시 자동으로(설정에서 켤 수 있음), 또는 호스트
-  앱에서 수동으로 Steam을 빅픽처 모드로 전환할 수 있습니다.
-- **일반 원격 데스크탑 모드**: 라이브러리에서 특정 게임 대신 "데스크탑 전체 화면
-  스트리밍"을 선택하면 게임을 실행하지 않고 바로 화면을 공유합니다.
-- **고FPS 설정**: 설정 화면에서 최대 500 FPS까지 목표 프레임레이트를 지정할 수
-  있습니다. 실제 값은 호스트의 모니터 주사율·GPU 인코더·네트워크 대역폭에 따라
-  제한됩니다 — 자세한 기술적 한계는 `host-app/README.md`의 "Known limitations"를
-  참고하세요.
+- **Wi-Fi/LAN 자동 검색**: 스트리밍 데스크톱 앱에서 같은 네트워크의 호스트를 UDP로 검색.
+- **Wake-on-LAN(WOL)**: 페어링/동기화 시 저장된 MAC으로 매직 패킷 전송.
+- **스트리밍 시작 동작 커스텀**: 클라이언트 설정에서 빅픽처 / 바탕화면 / 커스텀 프로그램
+  실행을 선택하면, 연결 시 호스트가 자동으로 수행합니다. 호스트의 수동 빅픽처 버튼도 유지.
+- **호스트 트레이 상주**: 창을 닫아도 트레이에서 계속 실행되며 연결을 받습니다. 완전 종료는
+  트레이 메뉴의 "종료".
+- **고FPS 설정**: 최대 500 FPS 목표(실제 값은 모니터·GPU·네트워크에 따라 제한).
 
 ## 화면 구성
 
-| 화면 | 경로 | 설명 |
-| --- | --- | --- |
-| 랜딩 페이지 | `/` | 핵심 메시지, 기능 소개, 작동 방식 |
-| 내 PC 목록 | `/app/devices` | 페어링된 PC 목록, 상태, PC 추가 |
-| PC 페어링 | `/app/pairing` | 네트워크 검색(데모) 또는 IP/PIN 직접 입력(실기) — 데스크톱 앱에서는 Wi-Fi 자동 검색도 지원 |
-| 게임 라이브러리 | `/app/library`, `/app/library/:deviceId` | PC 선택 → 게임 카드 그리드 (실기 연결 시 Steam 게임 실목록 + "데스크탑 전체 화면 스트리밍" 옵션) |
-| 스트리밍 플레이어 | `/player/:deviceId/:gameId` | 연결 상태, 해상도/FPS/지연시간 HUD, 종료 |
-| 설정 | `/app/settings` | 해상도/최대 500FPS/비트레이트/코덱/인코더 우선순위, 빅픽처 자동 실행, PC 이름 관리 |
-| 앱 다운로드 | `/download` | 호스트 앱 / 스트리밍 앱 MSI 다운로드 안내 |
+| 화면 | 경로 | 어디서 | 설명 |
+| --- | --- | --- | --- |
+| 랜딩 | `/` | 웹사이트 | 소개, 기능, 작동 방식 |
+| 앱 다운로드 | `/download` | 웹사이트 (+데스크톱에서도 접근 가능) | Host / Streaming MSI |
+| 로그인 | (앱 진입 게이트) | 데스크톱 앱만 | 회원가입 / 로그인 |
+| 내 PC | `/app/devices` | 스트리밍 앱 | 클라우드 동기화 + 수동 페어링 PC |
+| PC 페어링 | `/app/pairing` | 스트리밍 앱 | LAN 검색 또는 IP/PIN 직접 입력 |
+| 게임 라이브러리 | `/app/library` | 스트리밍 앱 | Steam 목록 + 데스크탑 전체 화면 |
+| 플레이어 | `/player/:deviceId/:gameId` | 스트리밍 앱 | HUD, 종료 |
+| 설정 | `/app/settings` | 스트리밍 앱 | 화질/시작 동작/계정 |
 
 ## 기술 스택
 
-- React 18 + TypeScript
-- Vite
-- Tailwind CSS (다크 게임 런처 테마)
-- React Router v6
-- 상태 관리: React Context + `localStorage` 영속화 (별도 라이브러리 없음)
-- 실제 스트리밍: 브라우저/웹뷰 네이티브 `RTCPeerConnection` + 자체 WebSocket 시그널링
-- 데스크톱 패키징: [Tauri](https://tauri.app) (Rust) — `src-tauri/`(클라이언트),
-  `host-app/src-tauri/`(호스트, `enigo` 입력 주입 포함)
+- React 18 + TypeScript + Vite + Tailwind CSS
+- React Router v6 (브라우저: 소개만 / Tauri: 풀 앱 + 로그인 게이트)
+- Cloudflare Workers (Hono) + D1 — 계정·기기 동기화 API
+- WebRTC (`RTCPeerConnection`) + 호스트 로컬 WebSocket 시그널링
+- Tauri 2 — MSI, store 플러그인, 호스트 트레이 아이콘
 
-## 실행 방법
+## 로컬 실행
 
 ```bash
-# 1) 의존성 설치
 npm install
-
-# 2) 개발 서버 실행 (기본 포트 5173)
-npm run dev
-
-# 3) 프로덕션 빌드
+npm run dev          # 웹사이트 (소개/다운로드) — http://localhost:5173
 npm run build
-
-# 4) 빌드 결과 미리보기
-npm run preview
 ```
 
-Node.js 18 이상을 권장합니다. `npm install` 후 브라우저에서
-`http://localhost:5173`을 열면 됩니다.
+계정 API까지 로컬에서 돌리려면:
 
-## 사용해보기 (데모 흐름)
+```bash
+# 1) D1 생성 (최초 1회) — 출력되는 database_id를 wrangler.toml에 붙여넣기
+npx wrangler d1 create lumalink
 
-1. 랜딩 페이지에서 **"무료로 시작하기"** 클릭 → 내 PC 목록으로 이동
-   (이미 페어링된 예시 PC 2대가 시드 데이터로 들어있습니다).
-2. **"+ PC 추가"** → 네트워크 검색 → PC 선택 → 화면에 표시된 PIN을 그대로
-   입력창에 입력 → 페어링 완료.
-3. 온라인 상태인 PC 카드의 **"라이브러리 열기"** 클릭 → 게임 카드를 선택.
-4. 하단에 나타나는 **"스트리밍 시작"** 클릭 → 연결 협상 → 스트리밍 화면
-   진입. 좌상단 HUD에서 해상도/FPS/지연시간/비트레이트 실시간 확인.
-5. 하단 컨트롤의 **"장애 시뮬레이션"**으로 오류 상태와 재연결 흐름을,
-   **"스트리밍 종료"**로 정상 종료 흐름을 확인할 수 있습니다.
-6. **설정** 화면에서 해상도/FPS/코덱/비트레이트를 바꾸면 다음 스트리밍부터
-   반영됩니다 (localStorage에 저장).
+# 2) 스키마 적용
+npx wrangler d1 execute lumalink --local --file=./migrations/0001_init.sql
+npx wrangler d1 execute lumalink --remote --file=./migrations/0001_init.sql
 
-## 코드 구조
+# 3) JWT 시크릿
+copy .dev.vars.example .dev.vars   # 로컬용
+npx wrangler secret put JWT_SECRET # 프로덕션용
 
-```
-src/
-  components/
-    devices/    DeviceCard 등 PC 목록 관련 컴포넌트
-    layout/     Logo, Sidebar, AppLayout (반응형 사이드바/드로어)
-    library/    GameCard
-    player/     StreamHud (오버레이 통계)
-    ui/         Button, Card, Badge, Toggle, Select, Spinner,
-                EmptyState, ErrorState, Skeleton (공용 UI 킷)
-  data/         mockDevices.ts, mockGames.ts — 시드/모의 데이터
-  hooks/        useStreamingSession — StreamingEngine ↔ React 상태 브릿지
-  pages/        Landing/Devices/Pairing/Library/Player/Settings/NotFound
-  services/
-    pairing/    PairingService(mock) + MockPairingService,
-                realHostClient.ts (실기 PIN 인증 핸드셰이크)
-    streaming/  StreamingEngine 인터페이스 + MockStreamingEngine +
-                WebRtcStreamingEngine(실기) + signalingProtocol.ts +
-                createStreamingEngine 팩토리
-  state/        AppStateContext (페어링된 PC, 스트리밍 설정, 실기 게임 목록) + storage.ts
-  types/        domain.ts — 모든 도메인 타입 정의
-  utils/        format.ts, games.ts (mock/실기 게임 목록 해석)
-src-tauri/      스트리밍 앱을 Windows MSI로 패키징 (루트 웹앱 재사용)
-host-app/       호스트 앱: Tauri+Rust (시그널링 릴레이, Steam 스캔, 입력 주입) + 자체 프론트엔드
-host-agent/     (레거시) Node.js 기반 초기 프로토타입 — host-app으로 대체됨
-.github/workflows/build-desktop.yml  두 앱 MSI 빌드 + public/downloads/ 자동 배포 CI
+# 4) 배포 (정적 dist + /api Worker)
+npm run build
+npx wrangler deploy
 ```
 
-### 실제 스트리밍 아키텍처 (mock이 아닌 경로)
-
-UI와 상태 관리 코드는 전송 계층을 전혀 알지 못하고, 오직
-`src/services/streaming/StreamingEngine.ts`의 인터페이스에만 의존합니다. 이 인터페이스에는
-두 구현체가 있습니다:
-
-```ts
-export interface StreamingEngine {
-  connect(config: StreamConnectConfig): Promise<void>;
-  disconnect(): Promise<void>;
-  onStats(callback: (stats: StreamStats) => void): Unsubscribe;
-  onStatusChange(callback: (status: StreamSessionStatus) => void): Unsubscribe;
-  sendInput(event: InputForwardEvent): void;
-  attachRenderTarget(target: HTMLCanvasElement | HTMLVideoElement): void;
-  onRemoteGames?(callback: (games: RemoteGameSummary[]) => void): Unsubscribe;
-}
-```
-
-- **`MockStreamingEngine`** — 데모 시드 PC용. 캔버스에 애니메이션을 그리고 통계는 난수로
-  생성합니다. 실제 네트워크 전송이 없습니다.
-- **`WebRtcStreamingEngine`** — `PairingPage`의 "IP로 실제 PC 연결"로 페어링한 실기용.
-  `ws://<host-ip>:58712/signal`로 [`host-app`](./host-app)의 시그널링 릴레이에 접속해
-  PIN 인증 → SDP/ICE 교환 → `RTCPeerConnection` 수립까지 **진짜로 수행**하고, 받은
-  `MediaStream`을 `<video>`에 붙입니다. `onStats`는 `RTCPeerConnection.getStats()`를
-  폴링한 실제 FPS/지연/비트레이트/패킷 손실률입니다. 입력은 `RTCDataChannel`로 호스트에
-  전달되어 `enigo`로 실제 주입됩니다.
-
-`createStreamingEngine(config)`가 `config.realHost` 유무로 둘 중 무엇을 반환할지
-결정합니다 (`src/services/streaming/createStreamingEngine.ts`). `useStreamingSession`,
-`PlayerPage`, `StreamHud` 등 나머지 코드는 어느 엔진이 쓰이는지 전혀 알 필요가 없습니다.
-
-시그널링 프로토콜(JSON 메시지 타입)은 `src/services/streaming/signalingProtocol.ts`에
-정의되어 있고, `host-app/src/signalingProtocol.ts`에 동일한 내용이 손으로 복사되어
-있습니다(별도 npm 프로젝트라 워크스페이스 없이는 직접 import할 수 없어서입니다 — 하나를
-고치면 다른 하나도 고쳐야 합니다).
-
-같은 방식으로 `src/services/pairing/PairingService.ts`(데모용 mock)와
-`src/services/pairing/realHostClient.ts`(실기용 PIN 인증 + 게임 목록 핸드셰이크)가
-분리되어 있습니다.
-
-## 데스크톱 앱 (호스트 / 스트리밍) 빌드하기
+데스크톱 앱:
 
 ```powershell
-# 스트리밍 앱 (루트 웹앱을 Tauri로 패키징)
-npm install
-npx tauri icon path\to\logo-1024.png   # 최초 1회, src-tauri/icons/README.md 참고
-npm run tauri:build                     # -> src-tauri/target/release/bundle/msi/*.msi
+# 스트리밍 앱
+npm run tauri:dev
+npm run tauri:build
 
 # 호스트 앱
 cd host-app
 npm install
-npx tauri icon path\to\logo-1024.png
-npm run tauri:build                     # -> host-app/src-tauri/target/release/bundle/msi/*.msi
+npm run tauri:dev
+npm run tauri:build
 ```
 
-Rust/Tauri 툴체인이 로컬에 필요합니다
-(<https://v2.tauri.app/start/prerequisites/>).
+## 사용해보기 (실제 흐름)
 
-### 배포 방식: 사이트 자체 다운로드 (GitHub Release 아님)
+1. `/download`에서 Host MSI와 Streaming MSI를 설치합니다.
+2. **같은 이메일/비밀번호**로 두 앱에 로그인(또는 회원가입)합니다.
+3. 호스트 앱이 트레이에서 대기하며 PIN을 표시하고, 클라우드에 이 PC를 등록합니다.
+4. 스트리밍 앱의 **내 PC**에 호스트가 자동으로 나타납니다. (안 보이면 LAN 검색/IP+PIN으로
+   수동 페어링도 가능합니다.)
+5. 라이브러리에서 게임 또는 "데스크탑 전체 화면"을 고른 뒤 스트리밍을 시작합니다.
+6. 설정에서 해상도/FPS/시작 동작(빅픽처·바탕화면·커스텀 프로그램)을 바꿀 수 있습니다.
 
-MSI는 GitHub Release가 아니라 **이 웹사이트 자체에서 같은 출처(same-origin)로
-직접 제공**됩니다. 태그(`v0.1.0` 등)를 푸시하면:
+## 코드 구조
 
-1. `.github/workflows/build-desktop.yml`의 `build` job이 두 앱을 Windows 러너에서
-   빌드합니다 (Rust/Tauri 코드의 실제 컴파일 검증 경로입니다).
-2. 이어서 `publish-to-site` job이 빌드된 MSI 두 개를 기본 브랜치(main)의
-   `public/downloads/LumaLink-Host-Setup.msi`,
-   `public/downloads/LumaLink-Streaming-Setup.msi`라는 **고정 파일명**으로 복사하고
-   자동으로 커밋·푸시합니다.
-3. 그 커밋을 로컬에 반영한 뒤(`git pull`), 사이트를 다시 빌드/배포하세요:
-   ```powershell
-   npm run build
-   npx wrangler deploy
-   ```
-   (Cloudflare Pages의 Git 연동을 쓴다면 3단계는 push만으로 자동 진행됩니다.)
+```
+src/                  웹사이트 + 스트리밍 앱 UI
+  pages/              Landing, Download, Login, Devices, Pairing, Library, Player, Settings
+  services/
+    account/          authClient.ts — Worker /api 호출
+    pairing/          discoverHosts, realHostClient
+    streaming/        WebRtcStreamingEngine, signalingProtocol, createStreamingEngine
+  state/              AuthContext, AppStateContext
+  utils/              platform (isDesktopApp), cloudDevices, games
+worker/               Cloudflare Worker (Hono) — /api/auth/*, /api/devices
+migrations/           D1 스키마
+src-tauri/            스트리밍 앱 네이티브 (WOL, LAN discovery, store)
+host-app/             호스트 앱 (시그널링, Steam, 입력, tray, 하트비트)
+```
 
-`src/pages/DownloadPage.tsx`(`/download`)는 위 고정 파일명을 가리키는 상대 경로
-(`/downloads/...`)로 링크하므로, 새 버전을 릴리스해도 이 페이지 코드를 다시 고칠
-필요가 없습니다. 저장소를 막 만들었다면(태그를 아직 푸시하지 않았다면) 이 파일들이
-없어서 다운로드 링크가 404가 되는 게 정상입니다 — 첫 태그 릴리스 후 해결됩니다.
+### 스트리밍 경로
 
-MSI 바이너리를 git에 커밋하는 방식이라 저장소 용량이 릴리스마다 조금씩 늘어납니다.
-데모/개인 프로젝트 규모에서는 괜찮지만, 장기적으로는 Cloudflare R2 + Worker 라우트나
-Git LFS로 옮기는 것을 고려하세요.
+UI는 `StreamingEngine` 인터페이스만 봅니다. 현재는 항상 `WebRtcStreamingEngine`을
+사용합니다(모의 엔진/시드 PC는 제거됨).
 
-## 접근성 / 반응형 / 상태 처리
+호스트 `startSharing()`은 클라이언트가 offer에 실어 보낸 `quality.streamStartAction`에 따라
+`launch_big_picture` / `launch_custom_program`을 호출합니다.
 
-- 키보드 포커스 링, 스킵 링크(`본문으로 건너뛰기`), `aria-live`/`role="status"`,
-  `role="switch"`, 아이콘 버튼 `aria-label` 적용.
-- `sm/md/lg/xl` 브레이크포인트 기반 반응형 그리드, 모바일 드로어 내비게이션.
-- 모든 주요 화면에 로딩(스켈레톤/스피너), 오류(재시도 포함), 빈 상태 UI 포함.
+### 계정 토큰
+
+로그인 성공 시 받은 bearer token은 각 앱의 로컬 store에 저장되고, 다음 실행 시
+`GET /api/auth/me`로 검증해 유효하면 로그인 화면을 건너뜁니다.
+
+## MSI 배포
+
+태그(`v0.3.0` 등)를 푸시하면 `.github/workflows/build-desktop.yml`이 두 MSI를 빌드해
+`public/downloads/`에 고정 파일명으로 커밋합니다. 이후:
+
+```powershell
+git pull
+npm run build
+npx wrangler deploy
+```
 
 ## 알려진 한계
 
-- **LAN 전용**: 시그널링은 암호화되지 않은 `ws://`이며 PIN 인증만 있습니다. 공용
-  인터넷에 포트를 열지 마세요.
-- **동시 클라이언트 1개**: 호스트 앱의 릴레이는 호스트 1 + 클라이언트 1 연결만 추적합니다.
-- **NAT 통과 없음**: STUN만 설정되어 있고 TURN 서버가 없어 같은 네트워크 밖에서는
-  연결이 실패할 수 있습니다.
-- **Rust 코드는 이 저장소를 생성한 환경에서 컴파일 검증되지 않았습니다** (셸이 동작하지
-  않는 샌드박스). `.github/workflows/build-desktop.yml` CI 또는 로컬
-  `npm run tauri:build`가 실제 검증 경로입니다. `enigo`/`axum`/`tauri` crate 버전에
-  따라 API가 조금씩 달라질 수 있으니 컴파일 에러가 나면 해당 crate의 최신 문서를
-  참고해 조정해주세요.
-- 앱 아이콘(`icons/icon.ico` 등)은 바이너리라 이 저장소에 커밋되어 있지 않습니다.
-  `npx tauri icon`으로 직접 생성하거나, CI가 자동으로 생성하는 임시 placeholder를
-  사용하세요.
+- **LAN 전용 영상 경로**: 시그널링은 암호화되지 않은 `ws://`이며 PIN 인증만 있습니다.
+  공용 인터넷에 포트를 열지 마세요. 계정 API만 HTTPS입니다.
+- **NAT 통과 없음**: STUN만 설정되어 있고 TURN이 없어 같은 네트워크 밖에서는 실패할 수
+  있습니다. 클라우드 동기화는 LAN IP를 기억할 뿐, 원격 중계는 하지 않습니다.
+- **이메일 인증/비밀번호 재설정/OAuth**는 아직 없습니다.
+- 앱 아이콘은 `npx tauri icon`으로 생성하세요.
 
 ## 저작권 · 독립성 고지
 
 - LumaLink는 **독립적인 프로젝트**이며, 특정 상용/오픈소스 원격 스트리밍 소프트웨어와
   제휴·후원·파생 관계가 전혀 없습니다.
-- "LumaLink"라는 이름, 로고, 카피, UI 디자인, 코드는 전부 이 프로젝트를 위해
-  새로 만든 **오리지널 자산**이며, 어떤 타사 제품의 이름·로고·문구·이미지·코드도
-  그대로 사용하지 않습니다.
-- 문서나 코드 주석에 언급될 수 있는 타사 제품명(예: Steam)은 각 소유자의 상표이며,
-  단순히 상호운용성(예: Steam 라이브러리 스캔)을 설명하기 위해 인용된 것입니다.
-- 웹 데모의 시드 PC 목록은 여전히 **모의(mock) 스트리밍**입니다(연결 상태·해상도·
-  FPS·지연시간이 실제 캡처 없이 시뮬레이션됨). **실제 WebRTC 화면 공유**는
-  `host-app/`으로 빌드한 실제 데스크톱 앱을 설치하고, "IP로 실제 PC 연결"로
-  페어링했을 때만 동작합니다.
+- "LumaLink" 이름·로고·UI·코드는 전부 이 프로젝트를 위해 새로 만든 **오리지널 자산**입니다.
+- 언급될 수 있는 타사 제품명(예: Steam)은 각 소유자의 상표이며, 상호운용성 설명용으로만
+  인용됩니다.
+- 실제 WebRTC 화면 공유는 Host/Streaming 데스크톱 앱을 설치하고 계정으로 로그인한 뒤에만
+  동작합니다. 이 웹사이트는 소개·다운로드 전용입니다.

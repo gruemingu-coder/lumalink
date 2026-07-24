@@ -25,9 +25,8 @@ const AUTH_TIMEOUT_MS = 8000;
  * answerer because only the host can call `getDisplayMedia()`), and
  * renders the incoming video track into an attached <video> element.
  *
- * This class implements the exact same `StreamingEngine` contract as
- * `MockStreamingEngine` — nothing in the UI layer needs to know which
- * one is in use. See `createStreamingEngine.ts`.
+ * This class implements the `StreamingEngine` contract used by
+ * `useStreamingSession`/`PlayerPage` — see `createStreamingEngine.ts`.
  */
 export class WebRtcStreamingEngine implements StreamingEngine {
   private ws: WebSocket | null = null;
@@ -253,7 +252,8 @@ export class WebRtcStreamingEngine implements StreamingEngine {
       bitrateMbps: this.settings.bitrateMbps,
       codec: this.settings.codec,
       hostAudio: this.settings.hostAudio,
-      launchBigPicture: this.settings.launchBigPicture,
+      streamStartAction: this.settings.streamStartAction,
+      customProgramPath: this.settings.customProgramPath || undefined,
       latencyMode: this.settings.latencyMode,
     };
   }
@@ -302,8 +302,7 @@ export class WebRtcStreamingEngine implements StreamingEngine {
     }
   }
 
-  attachRenderTarget(target: HTMLCanvasElement | HTMLVideoElement): void {
-    if (!(target instanceof HTMLVideoElement)) return;
+  attachRenderTarget(target: HTMLVideoElement): void {
     this.videoEl = target;
 
     const videoTrack = this.pc?.getReceivers().find((r) => r.track?.kind === "video")?.track;

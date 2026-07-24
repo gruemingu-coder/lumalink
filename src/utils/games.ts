@@ -1,5 +1,4 @@
 import type { Game, PcDevice } from "@/types/domain";
-import { getGamesForDevice as getMockGamesForDevice } from "@/data/mockGames";
 import { DESKTOP_MODE_GAME_ID } from "@/services/streaming/signalingProtocol";
 
 /** Synthetic "그냥 원격 데스크탑" entry, prepended for every real device's library. */
@@ -18,19 +17,14 @@ export function desktopModeGame(deviceId: string): Game {
 }
 
 /**
- * Games shown for a device: real Steam games reported by the Host
- * App for real (`isReal: true`) devices, or the built-in mock
- * library for demo devices. Real devices always get a synthetic
- * "desktop mode" entry first so a session can start without launching
- * any specific game.
+ * Games shown for a device: the real Steam games its Host App reported,
+ * always preceded by a synthetic "desktop mode" entry so a session can
+ * start without launching any specific game.
  */
 export function resolveGamesForDevice(
   device: PcDevice | undefined,
   realGamesByDevice: Record<string, Game[]>
 ): Game[] {
   if (!device) return [];
-  if (device.isReal) {
-    return [desktopModeGame(device.id), ...(realGamesByDevice[device.id] ?? [])];
-  }
-  return getMockGamesForDevice(device.id);
+  return [desktopModeGame(device.id), ...(realGamesByDevice[device.id] ?? [])];
 }

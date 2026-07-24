@@ -5,6 +5,14 @@ Runs on the gaming PC you want to stream **from**. Built with
 
 ## What it actually does
 
+- **Requires a LumaLink account** on first launch (login/signup). The
+  session is persisted with `tauri-plugin-store` so the next launch
+  auto-logs in. Closing the window **hides to the system tray** instead
+  of quitting — signaling, discovery, and cloud heartbeats keep running
+  until you choose "종료" from the tray menu.
+- Registers this PC to the logged-in account every ~30s (`POST /api/devices`
+  with name / LAN IP / MAC / PIN) so a Streaming app on the same account
+  can list it without retyping an IP/PIN.
 - Shows a 4-digit pairing PIN and this PC's role as a WebRTC signaling
   endpoint (`ws://<this-pc-ip>:58712/signal`).
 - Scans the local Steam library (via the Windows registry +
@@ -29,10 +37,10 @@ Runs on the gaming PC you want to stream **from**. Built with
 - Receives mouse/keyboard events from the client over an `RTCDataChannel`
   and injects them into the OS using the [`enigo`](https://docs.rs/enigo)
   crate, so the remote client can genuinely control this PC.
-- Can launch a selected Steam game via `steam://run/<appid>`, switch
-  Steam into Big Picture mode (`steam://open/bigpicture`, manually or
-  automatically when a client requests it), or skip launching anything
-  for a plain "데스크탑 전체 화면 스트리밍" session.
+- Honors the client's `streamStartAction` on connect: Steam Big Picture,
+  plain desktop (no extra launch), or a custom program path on this PC.
+  A manual "Steam 빅픽처 모드 실행" button remains available too.
+- Can also launch a selected Steam game via `steam://run/<appid>`.
 - Broadcasts a small UDP announcement every 2s (`discovery.rs`, port
   58713) so the LumaLink Streaming *desktop* app can auto-discover this
   PC on the LAN instead of requiring a manually typed IP address. The

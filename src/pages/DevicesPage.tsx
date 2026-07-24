@@ -1,6 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAppState } from "@/state/AppStateContext";
+import { useAuth } from "@/state/AuthContext";
+import { listDevices } from "@/services/account/authClient";
+import { cloudDeviceToPcDevice } from "@/utils/cloudDevices";
 import { sendWakeOnLan, WakeOnLanUnavailableError } from "@/services/host/wakeOnLan";
 import { DeviceCard } from "@/components/devices/DeviceCard";
 import { Button } from "@/components/ui/Button";
@@ -9,8 +12,14 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 
+// How often to re-pull the account's cloud device list, so a host coming
+// online/offline (or a PIN regenerated on another machine) shows up here
+// without the user having to do anything.
+const CLOUD_SYNC_INTERVAL_MS = 20_000;
+
 export function DevicesPage() {
-  const { devices, removeDevice, updateDeviceStatus } = useAppState();
+  const { devices, removeDevice, syncCloudDevices } = useAppState();
+  const { token } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -22,28 +31,36 @@ export function DevicesPage() {
     return () => clearTimeout(timer);
   }, []);
 
-  const handleRefresh = () => {
+  const syncFromCloud = useCallback(async () => {
+    if (!token) return;
+    try {
+      const cloudDevices = await listDevices(token);
+      syncCloudDevices(cloudDevices.map(cloudDeviceToPcDevice));
+      setRefreshError(null);
+    } catch (err) {
+      setRefreshError(
+        err instanceof Error ? err.message : "PC 목록을 불러오지 못했습니다."
+      );
+    }
+  }, [token, syncCloudDevices]);
+
+  useEffect(() => {
+    if (!token) return;
+    void syncFromCloud();
+    const interval = window.setInterval(() => void syncFromCloud(), CLOUD_SYNC_INTERVAL_MS);
+    return () => window.clearInterval(interval);
+  }, [token, syncFromCloud]);
+
+  const handleRefresh = async () => {
     setIsRefreshing(true);
-    setRefreshError(null);
-    setTimeout(() => {
-      setIsRefreshing(false);
-      if (Math.random() < 0.15) {
-        setRefreshError("PC 상태를 확인하지 못했습니다. 네트워크 연결을 확인해주세요.");
-        return;
-      }
-      devices.forEach((d) => {
-        if (d.status === "offline" && Math.random() < 0.3) {
-          updateDeviceStatus(d.id, "sleeping");
-        }
-      });
-    }, 900);
+    await syncFromCloud();
+    setIsRefreshing(false);
   };
 
   const handleWake = async (deviceId: string) => {
     const device = devices.find((d) => d.id === deviceId);
-    if (!device?.isReal || !device.macAddress) {
-      // Demo/mock devices have no real network presence — simulate waking.
-      updateDeviceStatus(deviceId, "online");
+    if (!device?.macAddress) {
+      setWakeMessage("이 PC의 MAC 주소를 알 수 없어 Wake-on-LAN을 보낼 수 없습니다.");
       return;
     }
     setWakingId(deviceId);

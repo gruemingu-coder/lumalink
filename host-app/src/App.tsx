@@ -9,6 +9,9 @@ import {
   type RemoteQualitySettings,
 } from "./signalingProtocol";
 import pkg from "../package.json";
+import { useAuth } from "./AuthContext";
+import { registerDevice } from "./authClient";
+import { getOrCreateDeviceId } from "./deviceId";
 
 const APP_VERSION = pkg.version;
 
@@ -20,6 +23,7 @@ interface InstalledGame {
 type ConnState = "starting" | "listening" | "active" | "relay-error";
 
 const ICE_SERVERS: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
+const HEARTBEAT_INTERVAL_MS = 30_000;
 
 /** One `RTCPeerConnection` per connected client, keyed by the relay's `clientId`. */
 interface ClientSession {
@@ -27,6 +31,7 @@ interface ClientSession {
 }
 
 export function App() {
+  const { user, token, logout } = useAuth();
   const [pin, setPin] = useState<string | null>(null);
   const [games, setGames] = useState<InstalledGame[]>([]);
   const [gamesError, setGamesError] = useState<string | null>(null);
@@ -49,6 +54,51 @@ export function App() {
   useEffect(() => {
     gamesRef.current = games;
   }, [games]);
+  // Same pattern as `gamesRef`: the heartbeat effect below only needs the
+  // *current* PIN at send-time, not to re-run whenever it changes.
+  const pinRef = useRef<string | null>(null);
+  useEffect(() => {
+    pinRef.current = pin;
+  }, [pin]);
+
+  // Registers this PC to the logged-in account so a LumaLink Streaming
+  // app logged into the same account can find it without the user typing
+  // in an IP/PIN — see `worker/index.ts`'s `POST /api/devices`.
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+
+    const sendHeartbeat = async () => {
+      try {
+        const [deviceId, info] = await Promise.all([
+          getOrCreateDeviceId(),
+          invoke<{ name: string; macAddress: string | null; localIp: string | null; signalPort: number }>(
+            "get_device_info"
+          ),
+        ]);
+        if (cancelled) return;
+        await registerDevice(token, {
+          id: deviceId,
+          name: info.name,
+          macAddress: info.macAddress,
+          lastIp: info.localIp,
+          signalPort: info.signalPort,
+          pairingPin: pinRef.current,
+        });
+      } catch {
+        // Best-effort — offline or the account server is unreachable;
+        // the next interval tick will retry. Local pairing (PIN over
+        // LAN) still works regardless.
+      }
+    };
+
+    void sendHeartbeat();
+    const interval = window.setInterval(sendHeartbeat, HEARTBEAT_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [token]);
 
   const loadGames = useCallback(() => {
     invoke<InstalledGame[]>("get_installed_games")
@@ -141,8 +191,12 @@ export function App() {
         if (gameId && gameId !== DESKTOP_MODE_GAME_ID) {
           void invoke("launch_game", { gameId }).catch(() => undefined);
         }
-        if (quality?.launchBigPicture) {
+        // What to do beyond that is a client-side setting
+        // (`streamStartAction`) — "desktop" needs no extra action here.
+        if (quality?.streamStartAction === "bigPicture") {
           void invoke("launch_big_picture").catch(() => undefined);
+        } else if (quality?.streamStartAction === "custom" && quality.customProgramPath) {
+          void invoke("launch_custom_program", { path: quality.customProgramPath }).catch(() => undefined);
         }
 
         const stream = await ensureCaptureStream(quality);
@@ -304,14 +358,30 @@ export function App() {
 
   return (
     <div className="flex min-h-screen flex-col gap-6 bg-base-950 px-6 py-8">
-      <header className="flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600 text-sm font-bold text-white">
-          LL
+      <header className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600 text-sm font-bold text-white">
+            LL
+          </div>
+          <div>
+            <h1 className="text-lg font-bold text-white">LumaLink Host</h1>
+            <p className="text-xs text-slate-500">이 PC의 게임을 다른 기기에서 스트리밍합니다</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-lg font-bold text-white">LumaLink Host</h1>
-          <p className="text-xs text-slate-500">이 PC의 게임을 다른 기기에서 스트리밍합니다</p>
-        </div>
+        {user && (
+          <div className="flex items-center gap-2">
+            <span className="hidden max-w-[10rem] truncate text-xs text-slate-500 sm:block">
+              {user.email}
+            </span>
+            <button
+              type="button"
+              onClick={() => void logout()}
+              className="rounded-lg border border-base-600 px-3 py-1.5 text-xs text-slate-300 transition-colors hover:border-brand-500 hover:text-white"
+            >
+              로그아웃
+            </button>
+          </div>
+        )}
       </header>
 
       <section className="rounded-2xl border border-base-700 bg-base-900 p-6 text-center">
@@ -400,8 +470,9 @@ export function App() {
 
       <footer className="text-center text-xs text-slate-600">
         <p>
-          이 창을 닫으면 호스트가 종료되고 더 이상 연결을 받을 수 없습니다. LAN 환경에서만 사용하도록
-          설계되었습니다(암호화되지 않은 시그널링).
+          창을 닫아도 시스템 트레이에서 계속 실행되며 연결을 받을 수 있습니다. 완전히 종료하려면
+          트레이 아이콘 메뉴에서 "종료"를 선택하세요. LAN 환경에서만 사용하도록 설계되었습니다
+          (암호화되지 않은 시그널링).
         </p>
         <p className="mt-2 text-[11px] text-slate-700">
           LumaLink는 독립적인 프로젝트이며 특정 상용 소프트웨어와 무관합니다. 모든 브랜드 자산은

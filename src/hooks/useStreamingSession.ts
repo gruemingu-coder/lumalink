@@ -15,27 +15,25 @@ interface UseStreamingSessionResult {
   status: StreamSessionStatus;
   stats: StreamStats | null;
   error: string | null;
-  /** Attach either a <canvas> (mock engine) or <video> (real WebRTC engine) here. */
-  mediaRef: RefObject<HTMLCanvasElement | HTMLVideoElement>;
+  /** Attach the <video> element that renders the incoming WebRTC stream. */
+  mediaRef: RefObject<HTMLVideoElement>;
   start: (config: StreamConnectConfig) => Promise<void>;
   stop: () => Promise<void>;
   retry: () => Promise<void>;
-  /** Demo-only hook to showcase the error/reconnect UI on demand. */
-  simulateDisconnect: () => Promise<void>;
   /** Forwards mouse/keyboard input to the active engine, if any. */
   sendInput: (event: InputForwardEvent) => void;
 }
 
 /**
  * Bridges a `StreamingEngine` instance into React state. This is the
- * only place that owns an engine instance — swapping the mock engine
- * for a real WebRTC one only requires changing `createStreamingEngine`.
+ * only place that owns an engine instance — see `createStreamingEngine.ts`
+ * for how the concrete transport is chosen.
  */
 export function useStreamingSession(): UseStreamingSessionResult {
   const engineRef = useRef<StreamingEngine | null>(null);
   const unsubscribersRef = useRef<Unsubscribe[]>([]);
   const lastConfigRef = useRef<StreamConnectConfig | null>(null);
-  const mediaRef = useRef<HTMLCanvasElement | HTMLVideoElement>(null);
+  const mediaRef = useRef<HTMLVideoElement>(null);
 
   const [status, setStatus] = useState<StreamSessionStatus>("idle");
   const [stats, setStats] = useState<StreamStats | null>(null);
@@ -91,12 +89,6 @@ export function useStreamingSession(): UseStreamingSessionResult {
     }
   }, [start, teardown]);
 
-  const simulateDisconnect = useCallback(async () => {
-    await teardown();
-    setStatus("error");
-    setError("네트워크 연결이 끊어졌습니다. (데모 시뮬레이션)");
-  }, [teardown]);
-
   const sendInput = useCallback((event: InputForwardEvent) => {
     engineRef.current?.sendInput(event);
   }, []);
@@ -114,5 +106,5 @@ export function useStreamingSession(): UseStreamingSessionResult {
     }
   }, [status]);
 
-  return { status, stats, error, mediaRef, start, stop, retry, simulateDisconnect, sendInput };
+  return { status, stats, error, mediaRef, start, stop, retry, sendInput };
 }

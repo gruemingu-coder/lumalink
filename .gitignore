@@ -3,6 +3,8 @@ dist
 dist-ssr
 *.local
 .DS_Store
+.dev.vars
+.wrangler
 .vscode/*
 !.vscode/extensions.json
 npm-debug.log*

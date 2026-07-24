@@ -6,6 +6,11 @@ import { Badge } from "@/components/ui/Badge";
 
 const features = [
   {
+    title: "계정으로 어디서나",
+    description: "한 번 가입하면 호스트·스트리밍 앱이 자동 로그인되고, 같은 계정의 PC 목록이 기기 간에 동기화됩니다.",
+    icon: <LinkIcon />,
+  },
+  {
     title: "초저지연 스트리밍",
     description: "네트워크 경로를 최적화해 입력부터 화면 반응까지의 지연을 최소화합니다.",
     icon: <BoltIcon />,
@@ -16,13 +21,8 @@ const features = [
     icon: <DevicesIcon />,
   },
   {
-    title: "간편한 PC 페어링",
-    description: "몇 번의 클릭과 PIN 확인만으로 새 PC를 안전하게 연결할 수 있습니다.",
-    icon: <LinkIcon />,
-  },
-  {
-    title: "세밀한 화질·성능 설정",
-    description: "해상도, 프레임레이트, 비트레이트, 코덱까지 원하는 대로 조정하세요.",
+    title: "세밀한 화질·시작 동작",
+    description: "해상도·FPS·비트레이트·코덱은 물론, 스트리밍 시작 시 빅픽처·바탕화면·커스텀 프로그램까지 지정할 수 있습니다.",
     icon: <SlidersIcon />,
   },
 ];
@@ -30,13 +30,13 @@ const features = [
 const steps = [
   {
     step: "1",
-    title: "내 PC 등록",
-    description: "LumaLink 호스트 에이전트가 설치된 PC를 홈 네트워크에서 찾습니다.",
+    title: "앱 설치 후 로그인",
+    description: "게이밍 PC엔 LumaLink Host를, 사용할 기기엔 LumaLink Streaming을 설치하고 계정으로 로그인하세요.",
   },
   {
     step: "2",
     title: "PIN으로 페어링",
-    description: "호스트 화면에 표시되는 PIN을 입력해 안전하게 신뢰 관계를 맺습니다.",
+    description: "호스트 화면에 표시되는 PIN을 입력해 안전하게 연결하면, 이후 같은 계정의 다른 기기에서도 자동으로 보여요.",
   },
   {
     step: "3",
@@ -75,7 +75,7 @@ export function LandingPage() {
                 앱 다운로드
               </Button>
             </Link>
-            <Link to="/app/devices">
+            <Link to="/download">
               <Button size="sm">PC 연결하기</Button>
             </Link>
           </div>
@@ -88,7 +88,7 @@ export function LandingPage() {
           <div className="mx-auto flex max-w-6xl flex-col items-center gap-12 lg:flex-row">
             <div className="max-w-xl text-center lg:text-left">
               <Badge tone="brand" className="mb-5">
-                독립 데모 프로젝트
+                독립 개발 · 오리지널 서비스
               </Badge>
               <h1 className="text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl">
                 내 PC 게임을
@@ -101,10 +101,10 @@ export function LandingPage() {
               </h1>
               <p className="mt-5 text-base text-slate-400 sm:text-lg">
                 LumaLink는 집에 있는 게이밍 PC의 화면과 사운드를 노트북, 태블릿, TV로
-                실시간 전송하는 원격 스트리밍 클라이언트 데모입니다.
+                실시간 전송하는 독립 원격 스트리밍 서비스입니다.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center lg:justify-start">
-                <Link to="/app/devices">
+                <Link to="/download">
                   <Button size="lg" className="w-full sm:w-auto">
                     무료로 시작하기
                   </Button>
@@ -181,8 +181,8 @@ export function LandingPage() {
             ))}
           </ol>
           <div className="mt-10 flex justify-center">
-            <Link to="/app/pairing">
-              <Button size="lg">지금 PC 페어링하기</Button>
+            <Link to="/download">
+              <Button size="lg">앱 다운로드하고 시작하기</Button>
             </Link>
           </div>
         </section>
@@ -192,16 +192,18 @@ export function LandingPage() {
         <div className="mx-auto max-w-6xl">
           <Logo size="sm" />
           <p className="mt-4 max-w-2xl text-xs leading-relaxed text-slate-500">
-            LumaLink는 학습·포트폴리오 목적의 독립적인 데모 프로젝트입니다. 웹 데모의 스트리밍
-            화면은 모의(mock) 렌더링이며, LumaLink Host/Streaming 데스크톱 앱을{" "}
+            LumaLink는 <span className="text-slate-300">독립적으로 개발·운영되는 실제 서비스</span>
+            이며, 특정 상용/오픈소스 원격 스트리밍 소프트웨어와 제휴·후원·파생 관계가 없습니다. 이
+            웹사이트는 소개와{" "}
             <Link to="/download" className="underline hover:text-slate-300">
-              설치
+              앱 다운로드
             </Link>
-            하면 실제 WebRTC 기반 화면 공유로 연결할 수 있습니다. 특정 상용 소프트웨어의
-            이름·로고·문구·이미지·코드를 사용하거나 이를 대체하지 않으며, 모든 브랜드 자산은
-            LumaLink만의 오리지널 디자인입니다.
+            만 제공하며, 실제 화면 공유는 LumaLink Host/Streaming 데스크톱 앱을 설치하고 계정으로
+            로그인해야 이용할 수 있습니다. "LumaLink" 이름·로고·UI·코드는 전부 이 프로젝트를 위해
+            새로 만든 오리지널 자산이며, 타사 제품의 이름·로고·문구·이미지·코드를 그대로 사용하지
+            않습니다.
           </p>
-          <p className="mt-4 text-xs text-slate-600">© 2026 LumaLink Demo Project.</p>
+          <p className="mt-4 text-xs text-slate-600">© 2026 LumaLink. All rights reserved.</p>
         </div>
       </footer>
     </div>

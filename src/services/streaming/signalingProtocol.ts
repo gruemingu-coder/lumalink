@@ -59,8 +59,10 @@ export interface RemoteQualitySettings {
   bitrateMbps: number;
   codec: "h264" | "h265" | "av1";
   hostAudio: boolean;
-  /** Launch Steam Big Picture mode when the session starts. */
-  launchBigPicture: boolean;
+  /** What the host should do when the session starts (client-side choice). */
+  streamStartAction: "bigPicture" | "desktop" | "custom";
+  /** Absolute path on the host, used when `streamStartAction === "custom"`. */
+  customProgramPath?: string;
   /** Encoder trade-off: prioritize resolution/quality vs. frame rate/latency. */
   latencyMode: "quality" | "balanced" | "latency";
 }

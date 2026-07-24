@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAppState } from "@/state/AppStateContext";
-import type { StreamCodec, StreamLatencyMode, StreamResolution } from "@/types/domain";
+import { useAuth } from "@/state/AuthContext";
+import type { StreamCodec, StreamLatencyMode, StreamResolution, StreamStartAction } from "@/types/domain";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Toggle } from "@/components/ui/Toggle";
@@ -28,11 +29,19 @@ const latencyModeOptions: { value: StreamLatencyMode; label: string }[] = [
   { value: "latency", label: "지연 최소화 (프레임레이트 우선)" },
 ];
 
+const streamStartActionOptions: { value: StreamStartAction; label: string }[] = [
+  { value: "desktop", label: "바탕화면 그대로 유지" },
+  { value: "bigPicture", label: "Steam 빅픽처 모드 실행" },
+  { value: "custom", label: "지정한 프로그램 실행" },
+];
+
 export function SettingsPage() {
   const { settings, updateSettings, resetSettings, devices, renameDevice } = useAppState();
+  const { user, logout } = useAuth();
   const [savedFlash, setSavedFlash] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState("");
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const flashSaved = () => {
     setSavedFlash(true);
@@ -50,6 +59,30 @@ export function SettingsPage() {
       </div>
 
       <div className="space-y-5">
+        {user && (
+          <Card className="flex items-center justify-between gap-3 p-5">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-200">계정</h2>
+              <p className="mt-1 text-sm text-slate-400">{user.email}</p>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              isLoading={isLoggingOut}
+              onClick={async () => {
+                setIsLoggingOut(true);
+                try {
+                  await logout();
+                } finally {
+                  setIsLoggingOut(false);
+                }
+              }}
+            >
+              로그아웃
+            </Button>
+          </Card>
+        )}
+
         <Card className="p-5">
           <h2 className="mb-3 text-sm font-semibold text-slate-200">화질 &amp; 성능</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -185,17 +218,45 @@ export function SettingsPage() {
               label="수직 동기화(V-Sync)"
               description="화면 찢김을 줄이지만 입력 지연이 소폭 늘어날 수 있습니다."
             />
-            <Toggle
-              id="launch-big-picture"
-              checked={settings.launchBigPicture}
-              onChange={(v) => {
-                updateSettings({ launchBigPicture: v });
-                flashSaved();
-              }}
-              label="Steam 빅픽처 모드 자동 실행"
-              description="실기 연결된 호스트에서 스트리밍을 시작할 때 Steam을 빅픽처 모드로 엽니다."
-            />
           </div>
+        </Card>
+
+        <Card className="p-5">
+          <h2 className="mb-1 text-sm font-semibold text-slate-200">스트리밍 시작 시 동작</h2>
+          <p className="mb-3 text-xs text-slate-500">
+            연결이 시작될 때 호스트 PC에서 자동으로 할 일을 정합니다. 호스트 앱의 "Steam 빅픽처
+            모드 실행" 버튼은 이 설정과 별개로 언제든 수동으로도 사용할 수 있습니다.
+          </p>
+          <Select
+            id="stream-start-action"
+            label="시작 동작"
+            value={settings.streamStartAction}
+            options={streamStartActionOptions}
+            onChange={(v) => {
+              updateSettings({ streamStartAction: v });
+              flashSaved();
+            }}
+          />
+          {settings.streamStartAction === "custom" && (
+            <div className="mt-3">
+              <label htmlFor="custom-program-path" className="mb-1 block text-sm font-medium text-slate-200">
+                실행할 프로그램 경로 (호스트 PC 기준)
+              </label>
+              <input
+                id="custom-program-path"
+                type="text"
+                value={settings.customProgramPath}
+                onChange={(e) => updateSettings({ customProgramPath: e.target.value })}
+                onBlur={flashSaved}
+                placeholder="예: C:\Games\MyLauncher\launcher.exe"
+                className="w-full rounded-lg border border-base-600 bg-base-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-brand-500"
+              />
+              <p className="mt-1.5 text-[11px] leading-relaxed text-slate-600">
+                이 경로는 클라이언트가 아니라 호스트 PC에서 실행됩니다. 호스트 PC에 실제로 존재하는
+                절대 경로를 입력해주세요.
+              </p>
+            </div>
+          )}
         </Card>
 
         <Card className="p-5">

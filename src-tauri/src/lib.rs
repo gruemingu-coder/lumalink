@@ -28,6 +28,10 @@ fn discover_hosts(timeout_ms: u64) -> Result<Vec<discovery::DiscoveredHost>, Str
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Persists the logged-in account's session token to disk so the
+        // app can auto-login on the next launch instead of showing the
+        // login screen every time (see `src/state/AuthContext.tsx`).
+        .plugin(tauri_plugin_store::Builder::default().build())
         .invoke_handler(tauri::generate_handler![send_wake_on_lan, discover_hosts])
         .run(tauri::generate_context!())
         .expect("error while running the LumaLink streaming app");

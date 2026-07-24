@@ -24,10 +24,8 @@ export interface PcDevice {
   name: string;
   platform: DevicePlatform;
   /**
-   * LAN address. For the built-in demo devices this is cosmetic only.
-   * For real devices (`isReal: true`) this is the actual IPv4 address
-   * of a machine running the LumaLink Host App, used to open a
-   * WebSocket connection to its signaling relay.
+   * The actual IPv4 address of a machine running the LumaLink Host App,
+   * used to open a WebSocket connection to its signaling relay.
    */
   address: string;
   status: DeviceStatus;
@@ -35,10 +33,9 @@ export interface PcDevice {
   pairedAt: string | null;
   lastSeenAt: string;
   /**
-   * True when this device was paired against a real LumaLink Host App
-   * over the LAN (as opposed to the seeded/discovered demo devices).
-   * Drives `createStreamingEngine()`'s choice between the mock engine
-   * and the real WebRTC engine.
+   * Always true for devices added through this app today — kept as an
+   * explicit flag (rather than assumed) since it's threaded through the
+   * streaming/session types below.
    */
   isReal?: boolean;
   /** Host App signaling relay port. Defaults to `SIGNALING_PORT`. */
@@ -57,14 +54,6 @@ export interface PcDevice {
    * Browsers can't send raw UDP, so WOL only works from the Tauri app.
    */
   macAddress?: string | null;
-}
-
-/** A device discovered on the network but not yet paired. */
-export interface DiscoveredDevice {
-  id: string;
-  name: string;
-  platform: DevicePlatform;
-  address: string;
 }
 
 export type GameGenre =
@@ -106,6 +95,14 @@ export type StreamCodec = "h264" | "h265" | "av1";
 /** Encoder trade-off: prioritize picture quality vs. frame rate/latency when bandwidth is tight. */
 export type StreamLatencyMode = "quality" | "balanced" | "latency";
 
+/**
+ * What the host should do the moment a streaming session starts —
+ * chosen on the *client* side (this setting) and sent to the host with
+ * the connection offer; the host's own manual "Steam 빅픽처 모드 실행"
+ * button still works independently of this.
+ */
+export type StreamStartAction = "bigPicture" | "desktop" | "custom";
+
 export interface StreamSettings {
   resolution: StreamResolution;
   fps: StreamFps;
@@ -116,8 +113,10 @@ export interface StreamSettings {
   vsync: boolean;
   /** Encoder degradation preference: keep resolution vs. keep frame rate. */
   latencyMode: StreamLatencyMode;
-  /** Auto-launch Steam Big Picture mode on the host when a session starts. */
-  launchBigPicture: boolean;
+  /** What to do on the host when a session starts. */
+  streamStartAction: StreamStartAction;
+  /** Absolute path on the *host* machine, used when `streamStartAction === "custom"`. */
+  customProgramPath: string;
 }
 
 export type StreamSessionStatus =
@@ -138,7 +137,7 @@ export interface StreamStats {
   decoder: "hardware" | "software";
 }
 
-/** Connection details for a real (non-mock) LumaLink Host App. */
+/** Connection details for a LumaLink Host App reachable over the LAN. */
 export interface RealHostConnectInfo {
   address: string;
   signalPort: number;
@@ -163,5 +162,6 @@ export const DEFAULT_STREAM_SETTINGS: StreamSettings = {
   hostAudio: true,
   vsync: false,
   latencyMode: "balanced",
-  launchBigPicture: false,
+  streamStartAction: "desktop",
+  customProgramPath: "",
 };

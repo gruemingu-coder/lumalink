@@ -8,8 +8,8 @@ import React, {
 } from "react";
 import type { Game, PcDevice, StreamSettings } from "@/types/domain";
 import { DEFAULT_STREAM_SETTINGS } from "@/types/domain";
-import { seedPairedDevices } from "@/data/mockDevices";
 import type { RemoteGameSummary } from "@/services/streaming/signalingProtocol";
+import { CLOUD_DEVICE_PREFIX } from "@/utils/cloudDevices";
 import { loadFromStorage, saveToStorage } from "./storage";
 
 interface AppState {
@@ -28,6 +28,9 @@ interface AppStateContextValue extends AppState {
   getDevice: (deviceId: string) => PcDevice | undefined;
   /** Store the game list a real Host App reported for a device. */
   setRealGames: (deviceId: string, games: RemoteGameSummary[]) => void;
+  /** Replaces the account's cloud-synced devices (see `utils/cloudDevices.ts`)
+   * with a fresh snapshot, leaving manually-paired devices untouched. */
+  syncCloudDevices: (cloudDevices: PcDevice[]) => void;
 }
 
 const AppStateContext = createContext<AppStateContextValue | null>(null);
@@ -58,9 +61,10 @@ function toGame(summary: RemoteGameSummary, deviceId: string, index: number): Ga
 }
 
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
-  const [devices, setDevices] = useState<PcDevice[]>(() =>
-    loadFromStorage(DEVICES_KEY, seedPairedDevices)
-  );
+  // No seeded/demo PCs — every device here was actually paired against a
+  // real LumaLink Host App (or synced from the account's cloud device
+  // list once logged in).
+  const [devices, setDevices] = useState<PcDevice[]>(() => loadFromStorage(DEVICES_KEY, []));
   const [settings, setSettings] = useState<StreamSettings>(() =>
     loadFromStorage(SETTINGS_KEY, DEFAULT_STREAM_SETTINGS)
   );
@@ -128,6 +132,13 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  const syncCloudDevices = useCallback((cloudDevices: PcDevice[]) => {
+    setDevices((prev) => [
+      ...prev.filter((d) => !d.id.startsWith(CLOUD_DEVICE_PREFIX)),
+      ...cloudDevices,
+    ]);
+  }, []);
+
   const value = useMemo<AppStateContextValue>(
     () => ({
       devices,
@@ -141,6 +152,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       resetSettings,
       getDevice,
       setRealGames,
+      syncCloudDevices,
     }),
     [
       devices,
@@ -154,6 +166,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       resetSettings,
       getDevice,
       setRealGames,
+      syncCloudDevices,
     ]
   );
 

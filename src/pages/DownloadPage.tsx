@@ -21,12 +21,14 @@ const APPS = [
     name: "LumaLink Host",
     tagline: "스트리밍할 게이밍 PC에 설치하세요",
     description:
-      "이 PC의 화면을 공유하고, PIN 페어링을 처리하고, 설치된 Steam 게임 목록을 보여줍니다. 실제로 화면 캡처와 WebRTC 전송, 입력 주입을 수행하는 앱입니다.",
+      "이 PC의 화면을 공유하고, PIN 페어링을 처리하고, 설치된 Steam 게임 목록을 보여줍니다. 실제로 화면 캡처와 WebRTC 전송, 입력 주입을 수행하는 앱입니다. 계정으로 로그인하면 창을 닫아도 시스템 트레이에서 계속 대기합니다.",
     bullets: [
-      "PIN 기반 페어링 (LAN 전용)",
+      "계정 로그인 (자동 로그인 지원)",
+      "PIN 기반 페어링 (LAN 전용) + 다중 클라이언트",
       "Steam 라이브러리 자동 스캔",
       "실제 화면 공유 (getDisplayMedia + WebRTC)",
       "원격 마우스·키보드 입력 처리",
+      "닫아도 트레이에서 백그라운드 실행",
     ],
     downloadUrl: HOST_APP_DOWNLOAD_URL,
     fileName: "LumaLink-Host-Setup.msi",
@@ -36,10 +38,11 @@ const APPS = [
     name: "LumaLink Streaming App",
     tagline: "게임을 플레이할 기기에 설치하세요",
     description:
-      "LumaLink 웹 앱과 동일한 화면을 네이티브 데스크톱 앱으로 제공합니다. 설치 없이 브라우저로 접속해도 되지만, 데스크톱 앱은 별도 창·전체화면에 더 적합합니다.",
+      "실제 스트리밍은 이 데스크톱 앱에서만 동작합니다(이 웹사이트는 소개·다운로드 전용입니다). 계정으로 로그인하면 같은 계정에 등록된 PC를 IP/PIN을 직접 입력하지 않고도 목록에서 바로 찾을 수 있어요.",
     bullets: [
-      "웹 버전과 동일한 UI/기능",
-      "IP 주소로 실제 호스트에 직접 연결",
+      "계정 로그인 (자동 로그인 지원)",
+      "로그인된 계정의 PC 자동 표시 (클라우드 동기화)",
+      "같은 Wi-Fi/LAN 호스트 자동 검색 + Wake-on-LAN",
       "전체화면 저지연 플레이",
     ],
     downloadUrl: STREAMING_APP_DOWNLOAD_URL,
@@ -55,9 +58,9 @@ export function DownloadPage() {
           <Link to="/">
             <Logo />
           </Link>
-          <Link to="/app/devices">
+          <Link to="/">
             <Button size="sm" variant="secondary">
-              웹에서 바로 시작하기
+              홈으로
             </Button>
           </Link>
         </div>

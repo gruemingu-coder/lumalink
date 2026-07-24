@@ -32,7 +32,8 @@ export interface RemoteQualitySettings {
   bitrateMbps: number;
   codec: "h264" | "h265" | "av1";
   hostAudio: boolean;
-  launchBigPicture: boolean;
+  streamStartAction: "bigPicture" | "desktop" | "custom";
+  customProgramPath?: string;
   latencyMode: "quality" | "balanced" | "latency";
 }
 

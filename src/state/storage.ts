@@ -16,6 +16,6 @@ export function saveToStorage<T>(key: string, value: T): void {
   try {
     window.localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(value));
   } catch {
-    // Storage can fail (quota, private mode) — non-critical for a demo.
+    // Storage can fail (quota, private mode) — non-critical, state just won't persist.
   }
 }

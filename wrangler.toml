@@ -1,5 +1,5 @@
-# Deploy target for this config: Cloudflare Workers Static Assets
-# (the *.workers.dev URL you get from `npx wrangler deploy`).
+# Deploy target for this config: Cloudflare Workers (Static Assets + a
+# real Worker script for the accounts/device-sync API under /api/*).
 #
 # NOTE: This is a *different* product from classic Cloudflare Pages
 # (*.pages.dev, Git-integration dashboard deploys). Pages has its own
@@ -7,12 +7,31 @@
 # matters when deploying with the Wrangler CLI directly as a Worker.
 name = "lumalink"
 compatibility_date = "2024-09-01"
+compatibility_flags = ["nodejs_compat"]
+main = "worker/index.ts"
 
 [assets]
 directory = "./dist"
+binding = "ASSETS"
 # Deep links like /app/devices or /player/:id/:id aren't real files —
 # without this, unmatched routes 404 instead of loading the SPA shell.
 not_found_handling = "single-page-application"
 # Keeps relative asset paths (./assets/...) resolving correctly when a
 # route like /app/devices is requested without a trailing slash.
 html_handling = "force-trailing-slash"
+# Only /api/* invokes worker/index.ts — every other request is served
+# directly from ./dist without running any Worker code.
+run_worker_first = ["/api/*"]
+
+# Provision once with `npx wrangler d1 create lumalink`, then replace
+# database_id below with the id it prints. Apply the schema with:
+#   npx wrangler d1 execute lumalink --local --file=./migrations/0001_init.sql   (local dev)
+#   npx wrangler d1 execute lumalink --remote --file=./migrations/0001_init.sql  (production)
+[[d1_databases]]
+binding = "DB"
+database_name = "lumalink"
+database_id = "28a58839-697e-4f24-930e-305f3ce49df4"
+
+# Set the real secret with `npx wrangler secret put JWT_SECRET` before
+# deploying — do not commit a real value here. For local `wrangler dev`,
+# put it in a git-ignored `.dev.vars` file instead (see .dev.vars.example).

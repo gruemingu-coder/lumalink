@@ -1,6 +1,6 @@
 [package]
 name = "lumalink-host"
-version = "0.2.0"
+version = "0.3.0"
 description = "LumaLink Host App - runs on your gaming PC, pairs with LumaLink streaming clients over the LAN, and shares your screen over WebRTC."
 authors = ["LumaLink"]
 edition = "2021"
@@ -13,7 +13,8 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["devtools"] }
+tauri = { version = "2", features = ["devtools", "tray-icon"] }
+tauri-plugin-store = "2"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "net", "time"] }
 axum = { version = "0.7", features = ["ws"] }
 futures-util = "0.3"
