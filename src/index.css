@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-base-950 text-slate-100;
+    background-image: radial-gradient(
+      ellipse 80% 60% at 50% -10%,
+      rgba(116, 87, 255, 0.16),
+      transparent 60%
+    );
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    @apply bg-brand-500/40 text-white;
+  }
+
+  /* Visible, consistent focus ring for keyboard navigation (a11y) */
+  :focus-visible {
+    outline: 2px solid #a99eff;
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  * {
+    scrollbar-color: #2b3150 #0c0e16;
+    scrollbar-width: thin;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: #0c0e16;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: #2b3150;
+    border-radius: 8px;
+    border: 2px solid #0c0e16;
+  }
+}
+
+@layer utilities {
+  .sr-only-focusable:not(:focus) {
+    @apply sr-only;
+  }
+}

@@ -1,0 +1,2 @@
+This folder is populated automatically by .github/workflows/build-desktop.yml
+(job: publish-to-site) after a tagged CI build. See DownloadPage.tsx.

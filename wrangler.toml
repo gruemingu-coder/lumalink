@@ -1,0 +1,18 @@
+# Deploy target for this config: Cloudflare Workers Static Assets
+# (the *.workers.dev URL you get from `npx wrangler deploy`).
+#
+# NOTE: This is a *different* product from classic Cloudflare Pages
+# (*.pages.dev, Git-integration dashboard deploys). Pages has its own
+# automatic SPA fallback and does NOT read this file. This file only
+# matters when deploying with the Wrangler CLI directly as a Worker.
+name = "lumalink"
+compatibility_date = "2024-09-01"
+
+[assets]
+directory = "./dist"
+# Deep links like /app/devices or /player/:id/:id aren't real files —
+# without this, unmatched routes 404 instead of loading the SPA shell.
+not_found_handling = "single-page-application"
+# Keeps relative asset paths (./assets/...) resolving correctly when a
+# route like /app/devices is requested without a trailing slash.
+html_handling = "force-trailing-slash"

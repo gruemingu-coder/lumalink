@@ -1,0 +1,125 @@
+name: Build Desktop Apps (MSI)
+
+# This workflow is the real compiler check for the Rust/Tauri code in
+# `src-tauri/` (LumaLink Streaming App) and `host-app/src-tauri/`
+# (LumaLink Host App) — the code was authored without a working local
+# build environment, so this CI run is what actually validates it.
+#
+# Distribution model: MSIs are served directly from the LumaLink
+# website itself (same-origin `/downloads/...`), not from GitHub
+# Releases. On a tag push, this workflow builds both MSIs, then the
+# `publish-to-site` job commits them into `public/downloads/` on the
+# default branch under stable filenames so `DownloadPage.tsx`'s links
+# never need to change. After that commit lands, redeploy the site
+# (e.g. `npm run build && npx wrangler deploy`) to publish the new
+# installers.
+#
+# Trigger a release build by pushing a tag: `git tag v0.1.0 && git push --tags`
+# Or run it manually from the Actions tab (build-only, nothing gets
+# published to the site) via workflow_dispatch.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app_name: lumalink-streaming-app
+            working_dir: .
+            src_tauri_dir: src-tauri
+          - app_name: lumalink-host-app
+            working_dir: host-app
+            src_tauri_dir: host-app/src-tauri
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ matrix.src_tauri_dir }}
+
+      - name: Install frontend dependencies
+        working-directory: ${{ matrix.working_dir }}
+        run: npm install
+
+      - name: Ensure app icons exist
+        # Real icons should be generated once from a real logo (see
+        # icons/README.md) and committed. If nobody's done that yet,
+        # generate a solid-color placeholder so the build doesn't fail —
+        # `tauri icon` needs *some* square source image to work from.
+        working-directory: ${{ matrix.working_dir }}
+        shell: pwsh
+        run: |
+          $iconPath = Join-Path "src-tauri" "icons" "icon.ico"
+          if (-not (Test-Path $iconPath)) {
+            Write-Host "No committed icons found at $iconPath — generating a placeholder."
+            Add-Type -AssemblyName System.Drawing
+            $bmp = New-Object System.Drawing.Bitmap 1024, 1024
+            $g = [System.Drawing.Graphics]::FromImage($bmp)
+            $g.Clear([System.Drawing.Color]::FromArgb(255, 100, 120, 255))
+            $g.Dispose()
+            $tmp = "placeholder-icon.png"
+            $bmp.Save($tmp, [System.Drawing.Imaging.ImageFormat]::Png)
+            $bmp.Dispose()
+            npx tauri icon $tmp
+          } else {
+            Write-Host "Using committed icons at $iconPath"
+          }
+
+      - name: Build MSI installer
+        working-directory: ${{ matrix.working_dir }}
+        run: npm run tauri:build
+
+      - name: Upload MSI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.app_name }}
+          path: ${{ matrix.src_tauri_dir }}/target/release/bundle/msi/*.msi
+          if-no-files-found: error
+
+  publish-to-site:
+    name: Publish MSIs to public/downloads
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      # Check out the default branch (not the tag) — the site is built
+      # and deployed from here, so this is where the MSIs need to live.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Copy MSIs into public/downloads with stable filenames
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p public/downloads
+          cp artifacts/lumalink-host-app/*.msi public/downloads/LumaLink-Host-Setup.msi
+          cp artifacts/lumalink-streaming-app/*.msi public/downloads/LumaLink-Streaming-Setup.msi
+
+      - name: Commit and push installers
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: publish desktop app installers (${{ github.ref_name }})"
+          file_pattern: "public/downloads/*.msi"
+          branch: ${{ github.event.repository.default_branch }}
