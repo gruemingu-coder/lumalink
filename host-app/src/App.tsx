@@ -25,9 +25,10 @@ type ConnState = "starting" | "listening" | "active" | "relay-error";
 const ICE_SERVERS: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
 const HEARTBEAT_INTERVAL_MS = 30_000;
 
-/** One `RTCPeerConnection` per connected client, keyed by the relay's `clientId`. */
+/** One session per connected client — WebRTC (legacy) or native DXGI+NVENC. */
 interface ClientSession {
-  pc: RTCPeerConnection;
+  kind: "webrtc" | "native";
+  pc?: RTCPeerConnection;
 }
 
 export function App() {
@@ -122,13 +123,13 @@ export function App() {
     (clientId: string) => {
       const session = sessionsRef.current.get(clientId);
       if (!session) return;
-      session.pc.close();
+      session.pc?.close();
       sessionsRef.current.delete(clientId);
 
-      // Only tear down the shared capture stream once nobody is watching.
       if (sessionsRef.current.size === 0) {
         streamRef.current?.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
+        void invoke("stop_native_stream").catch(() => undefined);
       }
       refreshOverallState();
     },
@@ -136,10 +137,11 @@ export function App() {
   );
 
   const stopAllSharing = useCallback(() => {
-    sessionsRef.current.forEach((session) => session.pc.close());
+    sessionsRef.current.forEach((session) => session.pc?.close());
     sessionsRef.current.clear();
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
+    void invoke("stop_native_stream").catch(() => undefined);
     refreshOverallState();
   }, [refreshOverallState]);
 
@@ -174,6 +176,54 @@ export function App() {
     [stopAllSharing]
   );
 
+  const startNativeSharing = useCallback(
+    async (
+      ws: WebSocket,
+      clientId: string,
+      gamesForClient: RemoteGameSummary[],
+      gameId: string | null | undefined,
+      quality: RemoteQualitySettings | undefined
+    ) => {
+      setShareError(null);
+      try {
+        if (gameId && gameId !== DESKTOP_MODE_GAME_ID) {
+          void invoke("launch_game", { gameId }).catch(() => undefined);
+        }
+        if (quality?.streamStartAction === "bigPicture") {
+          void invoke("launch_big_picture").catch(() => undefined);
+        } else if (quality?.streamStartAction === "custom" && quality.customProgramPath) {
+          void invoke("launch_custom_program", { path: quality.customProgramPath }).catch(() => undefined);
+        }
+
+        const backend = await invoke<string>("start_native_stream", {
+          fps: quality?.fps ?? 60,
+          bitrateMbps: quality?.bitrateMbps ?? 25,
+        });
+        sessionsRef.current.set(clientId, { kind: "native" });
+        refreshOverallState();
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(
+            encodeSignalingMessage({
+              type: "stream-ready",
+              mediaPort: 58714,
+              captureBackend: backend === "nvenc" ? "nvenc" : "software",
+              clientId,
+            })
+          );
+          ws.send(encodeSignalingMessage({ type: "games", games: gamesForClient, clientId }));
+        }
+      } catch (err) {
+        setShareError(
+          err instanceof Error
+            ? `네이티브 화면 공유를 시작할 수 없습니다: ${err.message}`
+            : "네이티브 화면 공유를 시작할 수 없습니다."
+        );
+        stopClientSession(clientId);
+      }
+    },
+    [refreshOverallState, stopClientSession]
+  );
+
   const startSharing = useCallback(
     async (
       offerSdp: string,
@@ -203,7 +253,7 @@ export function App() {
         const targetFps = quality?.fps ?? 60;
 
         const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-        sessionsRef.current.set(clientId, { pc });
+        sessionsRef.current.set(clientId, { kind: "webrtc", pc });
         refreshOverallState();
         stream.getTracks().forEach((track) => pc.addTrack(track, stream));
         void applyEncodingPreferences(pc, quality, targetFps);
@@ -301,7 +351,26 @@ export function App() {
             id: g.id,
             title: g.title,
           }));
-          void startSharing(msg.sdp, ws, clientId, gamesForClient, msg.gameId, msg.quality);
+          // Prefer LumaLink's native DXGI+NVENC path; WebRTC offer is legacy fallback.
+          void startNativeSharing(ws, clientId, gamesForClient, msg.gameId, msg.quality).catch(() => {
+            void startSharing(msg.sdp, ws, clientId, gamesForClient, msg.gameId, msg.quality);
+          });
+          break;
+        }
+        case "start-stream": {
+          const clientId = msg.clientId;
+          if (!clientId) break;
+          const gamesForClient: RemoteGameSummary[] = gamesRef.current.map((g) => ({
+            id: g.id,
+            title: g.title,
+          }));
+          void startNativeSharing(ws, clientId, gamesForClient, msg.gameId, msg.quality);
+          break;
+        }
+        case "input": {
+          if (msg.event) {
+            void invoke("inject_input", { event: msg.event }).catch(() => undefined);
+          }
           break;
         }
         case "ice": {
@@ -309,7 +378,7 @@ export function App() {
           if (!clientId) break;
           void sessionsRef.current
             .get(clientId)
-            ?.pc.addIceCandidate({
+            ?.pc?.addIceCandidate({
               candidate: msg.candidate.candidate,
               sdpMid: msg.candidate.sdpMid ?? undefined,
               sdpMLineIndex: msg.candidate.sdpMLineIndex ?? undefined,

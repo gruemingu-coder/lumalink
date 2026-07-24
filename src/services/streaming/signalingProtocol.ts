@@ -80,6 +80,10 @@ export interface AuthOkMessage {
   hostName: string;
   /** Host's LAN MAC address, if it could be determined — used for Wake-on-LAN. */
   macAddress?: string | null;
+  /** TCP port for LumaLink native H.264 media (DXGI+NVENC). */
+  mediaPort?: number;
+  /** `nvenc` when NVIDIA encoder is available via ffmpeg, else software. */
+  captureBackend?: "nvenc" | "software";
 }
 
 export interface AuthFailMessage {
@@ -99,6 +103,24 @@ export interface OfferMessage {
   sdp: string;
   gameId?: string | null;
   quality?: RemoteQualitySettings;
+}
+
+/** Preferred native path: no WebRTC SDP — host starts DXGI+NVENC and replies with stream-ready. */
+export interface StartStreamMessage {
+  type: "start-stream";
+  gameId?: string | null;
+  quality?: RemoteQualitySettings;
+}
+
+export interface StreamReadyMessage {
+  type: "stream-ready";
+  mediaPort: number;
+  captureBackend: "nvenc" | "software";
+}
+
+export interface InputMessage {
+  type: "input";
+  event: import("./StreamingEngine").InputForwardEvent;
 }
 
 /** Host -> Client (via relay). */
@@ -134,6 +156,9 @@ export type SignalingMessage =
   | AuthOkMessage
   | AuthFailMessage
   | OfferMessage
+  | StartStreamMessage
+  | StreamReadyMessage
+  | InputMessage
   | AnswerMessage
   | IceMessage
   | GamesMessage

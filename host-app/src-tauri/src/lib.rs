@@ -1,5 +1,6 @@
 mod discovery;
 mod input;
+mod media;
 mod network;
 mod signaling;
 mod state;
@@ -20,7 +21,42 @@ fn get_pin(state: tauri::State<Arc<SignalingState>>) -> String {
 fn regenerate_pin(state: tauri::State<Arc<SignalingState>>) -> String {
     let new_pin = state::generate_pin();
     *state.pin.lock().unwrap() = new_pin.clone();
+    if let Some(media) = &state.media {
+        media.set_pin(new_pin.clone());
+    }
     new_pin
+}
+
+/// Starts LumaLink's native DXGI capture + NVENC/software H.264 pipeline.
+#[tauri::command]
+fn start_native_stream(
+    state: tauri::State<Arc<SignalingState>>,
+    fps: u32,
+    bitrate_mbps: u32,
+) -> Result<String, String> {
+    let Some(media) = &state.media else {
+        return Err("이 플랫폼에서는 네이티브 캡처를 지원하지 않습니다.".into());
+    };
+    media.start_stream(1920, 1080, fps, bitrate_mbps);
+    Ok(match media.preferred_backend() {
+        media::EncoderBackend::Nvenc => "nvenc".into(),
+        media::EncoderBackend::Software => "software".into(),
+    })
+}
+
+#[tauri::command]
+fn stop_native_stream(state: tauri::State<Arc<SignalingState>>) {
+    if let Some(media) = &state.media {
+        media.stop_stream();
+    }
+}
+
+#[tauri::command]
+fn capture_backend(state: tauri::State<Arc<SignalingState>>) -> String {
+    match state.media.as_ref().map(|m| m.preferred_backend()) {
+        Some(media::EncoderBackend::Nvenc) => "nvenc".into(),
+        _ => "software".into(),
+    }
 }
 
 #[tauri::command]
@@ -99,7 +135,13 @@ fn get_client_count(state: tauri::State<Arc<SignalingState>>) -> usize {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let shared_state = Arc::new(SignalingState::new());
+    let pin = state::generate_pin();
+    let hub = Arc::new(media::MediaHub::new(pin.clone()));
+    media::spawn(hub.clone());
+
+    let shared_state = Arc::new(SignalingState::new(Some(hub)));
+    *shared_state.pin.lock().unwrap() = pin;
+
     let relay_state = shared_state.clone();
     let discovery_state = shared_state.clone();
 
@@ -112,6 +154,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_pin,
             regenerate_pin,
+            start_native_stream,
+            stop_native_stream,
+            capture_backend,
             get_installed_games,
             launch_game,
             launch_big_picture,

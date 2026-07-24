@@ -11,8 +11,8 @@ UI·브랜딩·코드는 이 프로젝트를 위해 새로 작성되었습니다
 | 부분 | 위치 | 설명 |
 | --- | --- | --- |
 | 웹사이트 | `src/` (브라우저 빌드) | 소개·다운로드 전용. `/`와 `/download`만 노출하며, 브라우저에서는 스트리밍 UI에 들어가지 않습니다. |
-| 스트리밍 앱 | `src/` + `src-tauri/` | 같은 React UI를 Tauri로 패키징. **계정 로그인 필수**, 클라우드에 등록된 PC 목록 동기화, WebRTC 수신, WOL/LAN 검색. MSI로 배포. |
-| 호스트 앱 | `host-app/` | Tauri + Rust. 게이밍 PC에 설치. **계정 로그인 필수**, PIN 페어링, Steam 스캔, 화면 캡처(WebRTC 송신), 입력 주입, **트레이 백그라운드**, 클라우드 하트비트. MSI로 배포. |
+| 스트리밍 앱 | `src/` + `src-tauri/` | 같은 React UI를 Tauri로 패키징. **계정 로그인 필수**, 클라우드 PC 동기화, **네이티브 H.264 수신(WebCodecs)**, WOL/LAN 검색. MSI로 배포. |
+| 호스트 앱 | `host-app/` | Tauri + Rust. 게이밍 PC에 설치. **계정 로그인**, PIN 페어링, Steam 스캔, **DXGI 캡처 + NVENC/libx264**, 입력 주입, 트레이 상주, 클라우드 하트비트. MSI로 배포. |
 
 계정 API는 Cloudflare Worker + D1 (`worker/`, `migrations/`)로 동작합니다. 정적 사이트와
 같은 Worker가 `/api/*`를 처리합니다.
@@ -23,6 +23,10 @@ UI·브랜딩·코드는 이 프로젝트를 위해 새로 작성되었습니다
   `tauri-plugin-store`로 저장되어 다음 실행부터 자동 로그인.
 - **클라우드 PC 동기화**: 호스트가 주기적으로 IP/PIN/MAC을 계정에 등록하면, 같은 계정으로
   로그인한 스트리밍 앱에 자동으로 목록이 표시됩니다.
+- **네이티브 캡처 (DXGI + NVENC)**: 호스트는 Sunshine/Moonlight가 아니라 LumaLink 자체
+  파이프라인으로 화면을 잡습니다. DXGI Desktop Duplication → 가능하면 **NVIDIA NVENC**
+  (`ffmpeg h264_nvenc`), 없으면 `libx264`. 호스트 PC에 ffmpeg(NVENC 빌드 권장)가 PATH에
+  있어야 합니다.
 - **다중 클라이언트**: 같은 PIN으로 여러 기기가 동시에 한 호스트에 접속할 수 있습니다.
 - **Wi-Fi/LAN 자동 검색**: 스트리밍 데스크톱 앱에서 같은 네트워크의 호스트를 UDP로 검색.
 - **Wake-on-LAN(WOL)**: 페어링/동기화 시 저장된 MAC으로 매직 패킷 전송.
@@ -50,7 +54,8 @@ UI·브랜딩·코드는 이 프로젝트를 위해 새로 작성되었습니다
 - React 18 + TypeScript + Vite + Tailwind CSS
 - React Router v6 (브라우저: 소개만 / Tauri: 풀 앱 + 로그인 게이트)
 - Cloudflare Workers (Hono) + D1 — 계정·기기 동기화 API
-- WebRTC (`RTCPeerConnection`) + 호스트 로컬 WebSocket 시그널링
+- 호스트 네이티브 캡처: DXGI + NVENC/libx264 (ffmpeg) + TCP Annex-B
+- 클라이언트: WebCodecs H.264 디코드 + WebSocket 시그널링/입력
 - Tauri 2 — MSI, store 플러그인, 호스트 트레이 아이콘
 
 ## 로컬 실행

@@ -60,14 +60,27 @@ function toGame(summary: RemoteGameSummary, deviceId: string, index: number): Ga
   };
 }
 
+/** Merges a previously-persisted settings blob with current defaults so
+ * upgrades (e.g. `launchBigPicture` → `streamStartAction`) don't leave
+ * the UI with missing fields. */
+function loadSettings(): StreamSettings {
+  const stored = loadFromStorage<Partial<StreamSettings> & { launchBigPicture?: boolean }>(
+    SETTINGS_KEY,
+    {}
+  );
+  const migrated: Partial<StreamSettings> = { ...stored };
+  if (migrated.streamStartAction == null && typeof stored.launchBigPicture === "boolean") {
+    migrated.streamStartAction = stored.launchBigPicture ? "bigPicture" : "desktop";
+  }
+  return { ...DEFAULT_STREAM_SETTINGS, ...migrated };
+}
+
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
   // No seeded/demo PCs — every device here was actually paired against a
   // real LumaLink Host App (or synced from the account's cloud device
   // list once logged in).
   const [devices, setDevices] = useState<PcDevice[]>(() => loadFromStorage(DEVICES_KEY, []));
-  const [settings, setSettings] = useState<StreamSettings>(() =>
-    loadFromStorage(SETTINGS_KEY, DEFAULT_STREAM_SETTINGS)
-  );
+  const [settings, setSettings] = useState<StreamSettings>(loadSettings);
   const [realGamesByDevice, setRealGamesByDevice] = useState<Record<string, Game[]>>(() =>
     loadFromStorage(REAL_GAMES_KEY, {})
   );

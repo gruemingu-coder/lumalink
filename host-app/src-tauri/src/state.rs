@@ -1,6 +1,7 @@
+use crate::media::MediaHub;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc::UnboundedSender;
 
 /// Shared between the Tauri commands (called from the host's own webview
@@ -17,15 +18,18 @@ pub struct SignalingState {
     pub pin: Mutex<String>,
     pub host_tx: Mutex<Option<UnboundedSender<String>>>,
     pub clients: Mutex<HashMap<String, UnboundedSender<String>>>,
+    /// Native DXGI+NVENC media hub (Windows). `None` on unsupported targets.
+    pub media: Option<Arc<MediaHub>>,
     next_client_id: AtomicU64,
 }
 
 impl SignalingState {
-    pub fn new() -> Self {
+    pub fn new(media: Option<Arc<MediaHub>>) -> Self {
         Self {
             pin: Mutex::new(generate_pin()),
             host_tx: Mutex::new(None),
             clients: Mutex::new(HashMap::new()),
+            media,
             next_client_id: AtomicU64::new(1),
         }
     }

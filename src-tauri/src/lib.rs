@@ -13,6 +13,7 @@
 //! broadcast announcements from LumaLink Host apps (`discovery.rs`).
 
 mod discovery;
+mod media_client;
 mod wol;
 
 #[tauri::command]
@@ -32,7 +33,12 @@ pub fn run() {
         // app can auto-login on the next launch instead of showing the
         // login screen every time (see `src/state/AuthContext.tsx`).
         .plugin(tauri_plugin_store::Builder::default().build())
-        .invoke_handler(tauri::generate_handler![send_wake_on_lan, discover_hosts])
+        .invoke_handler(tauri::generate_handler![
+            send_wake_on_lan,
+            discover_hosts,
+            media_client::media_connect,
+            media_client::media_disconnect
+        ])
         .run(tauri::generate_context!())
         .expect("error while running the LumaLink streaming app");
 }

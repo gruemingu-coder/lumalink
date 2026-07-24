@@ -26,6 +26,8 @@ mac_address = "1"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52"
+# DXGI desktop duplication — LumaLink's own capture path (not Sunshine/Moonlight).
+scrap = "0.5"
 
 [profile.release]
 panic = "abort"

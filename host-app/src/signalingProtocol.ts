@@ -48,9 +48,12 @@ export interface RemoteQualitySettings {
  * the host) and don't need to disambiguate.
  */
 export type SignalingMessage =
-  | { type: "auth-ok"; hostName: string; macAddress?: string | null }
+  | { type: "auth-ok"; hostName: string; macAddress?: string | null; mediaPort?: number; captureBackend?: "nvenc" | "software" }
   | { type: "auth-fail"; reason: string }
   | { type: "offer"; sdp: string; gameId?: string | null; quality?: RemoteQualitySettings; clientId?: string }
+  | { type: "start-stream"; gameId?: string | null; quality?: RemoteQualitySettings; clientId?: string }
+  | { type: "stream-ready"; mediaPort: number; captureBackend: "nvenc" | "software"; clientId?: string }
+  | { type: "input"; event: unknown; clientId?: string }
   | { type: "answer"; sdp: string; clientId?: string }
   | { type: "ice"; candidate: IceCandidateInit; clientId?: string }
   | { type: "games"; games: RemoteGameSummary[]; clientId?: string }
