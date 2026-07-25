@@ -1,7 +1,7 @@
 [package]
 name = "lumalink-host"
-version = "0.3.0"
-description = "LumaLink Host App - runs on your gaming PC, pairs with LumaLink streaming clients over the LAN, and shares your screen over WebRTC."
+version = "0.4.0"
+description = "LumaLink Host App - DXGI + NVENC native capture for LumaLink streaming clients."
 authors = ["LumaLink"]
 edition = "2021"
 
@@ -26,6 +26,7 @@ mac_address = "1"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52"
+scrap = "0.5"
 
 [profile.release]
 panic = "abort"

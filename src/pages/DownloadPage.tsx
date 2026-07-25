@@ -21,12 +21,12 @@ const APPS = [
     name: "LumaLink Host",
     tagline: "스트리밍할 게이밍 PC에 설치하세요",
     description:
-      "이 PC의 화면을 공유하고, PIN 페어링을 처리하고, 설치된 Steam 게임 목록을 보여줍니다. 실제로 화면 캡처와 WebRTC 전송, 입력 주입을 수행하는 앱입니다. 계정으로 로그인하면 창을 닫아도 시스템 트레이에서 계속 대기합니다.",
+      "이 PC의 화면을 DXGI로 캡처하고 NVIDIA NVENC(또는 libx264)로 인코딩해 스트리밍합니다. PIN 페어링, Steam 목록, 입력 주입을 처리하며, 계정 로그인 후 창을 닫아도 트레이에서 대기합니다. 호스트 PC에 ffmpeg가 PATH에 있어야 합니다.",
     bullets: [
       "계정 로그인 (자동 로그인 지원)",
       "PIN 기반 페어링 (LAN 전용) + 다중 클라이언트",
       "Steam 라이브러리 자동 스캔",
-      "실제 화면 공유 (getDisplayMedia + WebRTC)",
+      "DXGI + NVENC 네이티브 캡처 (ffmpeg, libx264 폴백)",
       "원격 마우스·키보드 입력 처리",
       "닫아도 트레이에서 백그라운드 실행",
     ],
@@ -43,7 +43,7 @@ const APPS = [
       "계정 로그인 (자동 로그인 지원)",
       "로그인된 계정의 PC 자동 표시 (클라우드 동기화)",
       "같은 Wi-Fi/LAN 호스트 자동 검색 + Wake-on-LAN",
-      "전체화면 저지연 플레이",
+      "네이티브 H.264 수신 (WebCodecs) + 전체화면 플레이",
     ],
     downloadUrl: STREAMING_APP_DOWNLOAD_URL,
     fileName: "LumaLink-Streaming-Setup.msi",

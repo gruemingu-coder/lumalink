@@ -25,9 +25,10 @@ type ConnState = "starting" | "listening" | "active" | "relay-error";
 const ICE_SERVERS: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
 const HEARTBEAT_INTERVAL_MS = 30_000;
 
-/** One `RTCPeerConnection` per connected client, keyed by the relay's `clientId`. */
+/** One session per client — native DXGI+NVENC, or legacy WebRTC fallback. */
 interface ClientSession {
-  pc: RTCPeerConnection;
+  kind: "native" | "webrtc";
+  pc?: RTCPeerConnection;
 }
 
 export function App() {
@@ -122,13 +123,13 @@ export function App() {
     (clientId: string) => {
       const session = sessionsRef.current.get(clientId);
       if (!session) return;
-      session.pc.close();
+      session.pc?.close();
       sessionsRef.current.delete(clientId);
 
-      // Only tear down the shared capture stream once nobody is watching.
       if (sessionsRef.current.size === 0) {
         streamRef.current?.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
+        void invoke("stop_native_stream").catch(() => undefined);
       }
       refreshOverallState();
     },
@@ -136,10 +137,11 @@ export function App() {
   );
 
   const stopAllSharing = useCallback(() => {
-    sessionsRef.current.forEach((session) => session.pc.close());
+    sessionsRef.current.forEach((session) => session.pc?.close());
     sessionsRef.current.clear();
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
+    void invoke("stop_native_stream").catch(() => undefined);
     refreshOverallState();
   }, [refreshOverallState]);
 
@@ -174,6 +176,54 @@ export function App() {
     [stopAllSharing]
   );
 
+  const startNativeSharing = useCallback(
+    async (
+      ws: WebSocket,
+      clientId: string,
+      gamesForClient: RemoteGameSummary[],
+      gameId: string | null | undefined,
+      quality: RemoteQualitySettings | undefined
+    ) => {
+      setShareError(null);
+      try {
+        if (gameId && gameId !== DESKTOP_MODE_GAME_ID) {
+          void invoke("launch_game", { gameId }).catch(() => undefined);
+        }
+        if (quality?.streamStartAction === "bigPicture") {
+          void invoke("launch_big_picture").catch(() => undefined);
+        } else if (quality?.streamStartAction === "custom" && quality.customProgramPath) {
+          void invoke("launch_custom_program", { path: quality.customProgramPath }).catch(() => undefined);
+        }
+
+        const backend = await invoke<string>("start_native_stream", {
+          fps: quality?.fps ?? 60,
+          bitrateMbps: quality?.bitrateMbps ?? 25,
+        });
+        sessionsRef.current.set(clientId, { kind: "native" });
+        refreshOverallState();
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(
+            encodeSignalingMessage({
+              type: "stream-ready",
+              mediaPort: 58714,
+              captureBackend: backend === "nvenc" ? "nvenc" : "software",
+              clientId,
+            })
+          );
+          ws.send(encodeSignalingMessage({ type: "games", games: gamesForClient, clientId }));
+        }
+      } catch (err) {
+        setShareError(
+          err instanceof Error
+            ? `네이티브 캡처 실패: ${err.message}`
+            : "네이티브 캡처를 시작할 수 없습니다. ffmpeg(PATH)를 확인해주세요."
+        );
+        stopClientSession(clientId);
+      }
+    },
+    [refreshOverallState, stopClientSession]
+  );
+
   const startSharing = useCallback(
     async (
       offerSdp: string,
@@ -185,14 +235,9 @@ export function App() {
     ) => {
       setShareError(null);
       try {
-        // Launch whatever the client asked to play before we start
-        // capturing — "desktop" mode (or no gameId) skips this and just
-        // shares whatever's already on screen.
         if (gameId && gameId !== DESKTOP_MODE_GAME_ID) {
           void invoke("launch_game", { gameId }).catch(() => undefined);
         }
-        // What to do beyond that is a client-side setting
-        // (`streamStartAction`) — "desktop" needs no extra action here.
         if (quality?.streamStartAction === "bigPicture") {
           void invoke("launch_big_picture").catch(() => undefined);
         } else if (quality?.streamStartAction === "custom" && quality.customProgramPath) {
@@ -203,7 +248,7 @@ export function App() {
         const targetFps = quality?.fps ?? 60;
 
         const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-        sessionsRef.current.set(clientId, { pc });
+        sessionsRef.current.set(clientId, { kind: "webrtc", pc });
         refreshOverallState();
         stream.getTracks().forEach((track) => pc.addTrack(track, stream));
         void applyEncodingPreferences(pc, quality, targetFps);
@@ -294,7 +339,18 @@ export function App() {
           }
           break;
         }
+        case "start-stream": {
+          const clientId = msg.clientId;
+          if (!clientId) break;
+          const gamesForClient: RemoteGameSummary[] = gamesRef.current.map((g) => ({
+            id: g.id,
+            title: g.title,
+          }));
+          void startNativeSharing(ws, clientId, gamesForClient, msg.gameId, msg.quality);
+          break;
+        }
         case "offer": {
+          // Legacy WebRTC path (getDisplayMedia). Native clients send `start-stream`.
           const clientId = msg.clientId;
           if (!clientId) break;
           const gamesForClient: RemoteGameSummary[] = gamesRef.current.map((g) => ({
@@ -304,12 +360,18 @@ export function App() {
           void startSharing(msg.sdp, ws, clientId, gamesForClient, msg.gameId, msg.quality);
           break;
         }
+        case "input": {
+          if (msg.event) {
+            void invoke("inject_input", { event: msg.event }).catch(() => undefined);
+          }
+          break;
+        }
         case "ice": {
           const clientId = msg.clientId;
           if (!clientId) break;
           void sessionsRef.current
             .get(clientId)
-            ?.pc.addIceCandidate({
+            ?.pc?.addIceCandidate({
               candidate: msg.candidate.candidate,
               sdpMid: msg.candidate.sdpMid ?? undefined,
               sdpMLineIndex: msg.candidate.sdpMLineIndex ?? undefined,
@@ -552,8 +614,8 @@ function connStateLabel(state: ConnState, clientCount: number): string {
       return "대기 중 — 클라이언트 연결을 기다리고 있습니다";
     case "active":
       return clientCount > 1
-        ? `${clientCount}개의 클라이언트에 화면을 공유하고 있습니다`
-        : "클라이언트에 화면을 공유하고 있습니다";
+        ? `${clientCount}개의 클라이언트에 DXGI+NVENC로 스트리밍 중`
+        : "클라이언트에 DXGI+NVENC로 스트리밍 중";
     case "relay-error":
       return "시그널링 서버에 연결할 수 없습니다. 앱을 재시작해주세요.";
     default:

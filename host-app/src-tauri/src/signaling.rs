@@ -91,10 +91,20 @@ async fn handle_socket(socket: WebSocket, params: HashMap<String, String>, state
         let id = client_id.clone().expect("client role always has a client_id");
         state.clients.lock().unwrap().insert(id.clone(), tx.clone());
 
+        let capture_backend = state
+            .media
+            .as_ref()
+            .map(|m| match m.preferred_backend() {
+                crate::media::EncoderBackend::Nvenc => "nvenc",
+                crate::media::EncoderBackend::Software => "software",
+            })
+            .unwrap_or("software");
         let ok = serde_json::json!({
             "type": "auth-ok",
             "hostName": host_display_name(),
             "macAddress": primary_mac_address(),
+            "mediaPort": crate::media::MEDIA_PORT,
+            "captureBackend": capture_backend,
         });
         let _ = tx.send(ok.to_string());
 

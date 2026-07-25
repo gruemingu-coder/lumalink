@@ -1,18 +1,11 @@
-//! LumaLink Streaming App (client) — a thin native shell around the same
-//! React/TypeScript UI that runs on the LumaLink website.
+//! LumaLink Streaming App (client) — Tauri shell around the React UI.
 //!
-//! There is intentionally very little Rust here: the actual streaming
-//! logic (WebRTC signaling, `RTCPeerConnection`, input forwarding) lives
-//! in `src/services/streaming/WebRtcStreamingEngine.ts` and runs inside
-//! this app's webview exactly as it does in a browser, since WebView2 /
-//! WKWebView / WebKitGTK all support `RTCPeerConnection` natively. This
-//! app's only job is to package that UI as a real, installable desktop
-//! app (see `tauri.conf.json`'s `bundle.targets: ["msi"]`), plus a
-//! couple of OS-level things a browser tab simply can't do: sending a
-//! raw Wake-on-LAN UDP packet (`wol.rs`) and listening for LAN
-//! broadcast announcements from LumaLink Host apps (`discovery.rs`).
+//! Native DXGI+NVENC path: TCP media client (`media_client`) bridges
+//! Annex-B H.264 into the webview for WebCodecs decode. Legacy WebRTC
+//! remains available as a fallback transport in the TypeScript layer.
 
 mod discovery;
+mod media_client;
 mod wol;
 
 #[tauri::command]
@@ -28,11 +21,13 @@ fn discover_hosts(timeout_ms: u64) -> Result<Vec<discovery::DiscoveredHost>, Str
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        // Persists the logged-in account's session token to disk so the
-        // app can auto-login on the next launch instead of showing the
-        // login screen every time (see `src/state/AuthContext.tsx`).
         .plugin(tauri_plugin_store::Builder::default().build())
-        .invoke_handler(tauri::generate_handler![send_wake_on_lan, discover_hosts])
+        .invoke_handler(tauri::generate_handler![
+            send_wake_on_lan,
+            discover_hosts,
+            media_client::media_connect,
+            media_client::media_disconnect
+        ])
         .run(tauri::generate_context!())
         .expect("error while running the LumaLink streaming app");
 }

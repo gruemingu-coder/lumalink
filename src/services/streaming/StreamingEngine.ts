@@ -10,10 +10,8 @@ export type Unsubscribe = () => void;
  * Transport-agnostic contract for a streaming engine.
  *
  * The UI (`PlayerPage`, `StreamHud`, etc.) only ever talks to this
- * interface, never to a concrete transport — `WebRtcStreamingEngine` is
- * the only implementation today (see `createStreamingEngine.ts`), but
- * keeping the UI decoupled from it means a different transport could be
- * swapped in later without touching `useStreamingSession`/`PlayerPage`.
+ * interface — `NativeH264StreamingEngine` is the primary transport
+ * (see `createStreamingEngine.ts`).
  */
 export interface StreamingEngine {
   /** Establish a session for the given host/game/settings. */
@@ -28,10 +26,7 @@ export interface StreamingEngine {
   /** Subscribe to session status transitions. Returns an unsubscribe fn. */
   onStatusChange(callback: (status: StreamSessionStatus) => void): Unsubscribe;
 
-  /**
-   * Hook point for forwarding local input to the host.
-   * A WebRTC implementation would forward this over an RTCDataChannel.
-   */
+  /** Forward local input to the host (signaling WS or data channel). */
   sendInput(event: InputForwardEvent): void;
 
   /** Attach the <video> element that the incoming MediaStream is rendered into. */
