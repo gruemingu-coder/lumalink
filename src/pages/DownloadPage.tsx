@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/Button";
  */
 const HOST_APP_DOWNLOAD_URL = "/downloads/LumaLink-Host-Setup.msi";
 const STREAMING_APP_DOWNLOAD_URL = "/downloads/LumaLink-Streaming-Setup.msi";
+const ANDROID_APK_HINT =
+  "Android APK는 GitHub Actions(`build-android.yml`) 아티팩트 또는 로컬 `npm run tauri:android:build`로 빌드합니다.";
 
 const APPS = [
   {
@@ -24,10 +26,10 @@ const APPS = [
       "이 PC의 화면을 DXGI로 캡처하고 NVIDIA NVENC(또는 libx264)로 인코딩해 스트리밍합니다. PIN 페어링, Steam 목록, 입력 주입을 처리하며, 계정 로그인 후 창을 닫아도 트레이에서 대기합니다. 호스트 PC에 ffmpeg가 PATH에 있어야 합니다.",
     bullets: [
       "계정 로그인 (자동 로그인 지원)",
-      "PIN 기반 페어링 (LAN 전용) + 다중 클라이언트",
+      "PIN 본문 인증 + mediaToken (URL에 PIN 없음)",
       "Steam 라이브러리 자동 스캔",
-      "DXGI + NVENC 네이티브 캡처 (ffmpeg, libx264 폴백)",
-      "원격 마우스·키보드 입력 처리",
+      "DXGI + NVENC → LLU2 UDP (CRC/NACK/PLI/암호화)",
+      "원격 입력 (Win/Meta 키 차단) + 트레이 PIN 재발급",
       "닫아도 트레이에서 백그라운드 실행",
     ],
     downloadUrl: HOST_APP_DOWNLOAD_URL,
@@ -38,12 +40,13 @@ const APPS = [
     name: "LumaLink Streaming App",
     tagline: "게임을 플레이할 기기에 설치하세요",
     description:
-      "실제 스트리밍은 이 데스크톱 앱에서만 동작합니다(이 웹사이트는 소개·다운로드 전용입니다). 계정으로 로그인하면 같은 계정에 등록된 PC를 IP/PIN을 직접 입력하지 않고도 목록에서 바로 찾을 수 있어요.",
+      "실제 스트리밍은 데스크톱/Android 앱에서 동작합니다(이 웹사이트는 소개·다운로드 전용입니다). 계정으로 로그인하면 같은 계정에 등록된 PC를 IP/PIN을 직접 입력하지 않고도 목록에서 바로 찾을 수 있어요.",
     bullets: [
       "계정 로그인 (자동 로그인 지원)",
       "로그인된 계정의 PC 자동 표시 (클라우드 동기화)",
       "같은 Wi-Fi/LAN 호스트 자동 검색 + Wake-on-LAN",
-      "네이티브 H.264 수신 (WebCodecs) + 전체화면 플레이",
+      "네이티브 H.264 (WebCodecs) + RTT/손실 통계 + 자동 재연결",
+      ANDROID_APK_HINT,
     ],
     downloadUrl: STREAMING_APP_DOWNLOAD_URL,
     fileName: "LumaLink-Streaming-Setup.msi",
@@ -105,6 +108,19 @@ export function DownloadPage() {
             </Card>
           ))}
         </div>
+
+        <Card className="mt-10 p-6">
+          <h2 className="text-base font-semibold text-slate-100">Android APK</h2>
+          <p className="mt-2 text-sm text-slate-400">
+            Streaming 클라이언트용 APK는 JDK 17 + Android SDK가 있는 환경에서
+            <code className="mx-1 rounded bg-base-800 px-1.5 py-0.5 text-xs text-slate-200">
+              npm run tauri:android:build
+            </code>
+            또는 GitHub Actions <code className="rounded bg-base-800 px-1.5 py-0.5 text-xs">build-android</code>
+            워크플로로 생성합니다. 이 PC에는 Java/SDK가 없어 로컬 init은 보류했고, CI·로컬 SDK
+            설치 후 빌드하면 됩니다.
+          </p>
+        </Card>
 
         <Card className="mt-10 p-6">
           <h2 className="text-base font-semibold text-slate-100">설치 후 연결하는 방법</h2>

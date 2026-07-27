@@ -6,7 +6,7 @@
  * Native path (preferred):
  *  - Client sends `start-stream` after `auth-ok`
  *  - Host starts DXGI+NVENC capture and replies `stream-ready`
- *  - Client opens TCP media port (default 58714) via Tauri bridge
+ *  - Client opens UDP media port (default 58714, LLU2) via Tauri bridge
  *  - Input rides the signaling WebSocket as `input` messages
  *
  * Legacy WebRTC path (`offer`/`answer`/`ice`) remains for older clients.
@@ -50,6 +50,9 @@ export interface AuthOkMessage {
   macAddress?: string | null;
   mediaPort?: number;
   captureBackend?: "nvenc" | "software";
+  /** Short-lived UDP media credential (prefer over PIN on the wire). */
+  mediaToken?: string | null;
+  protocol?: string;
 }
 
 export interface AuthFailMessage {

@@ -94,7 +94,8 @@ export function PairingPage() {
     <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:py-10">
       <h1 className="text-2xl font-bold text-white">PC 페어링</h1>
       <p className="mt-1 text-sm text-slate-400">
-        LumaLink Host 앱이 실행 중인 PC의 IP 주소와 PIN으로 안전하게 연결하세요.
+        LumaLink Host 앱이 실행 중인 PC의 IP 주소와 PIN으로 연결하세요. PIN은 연결 메시지
+        본문으로만 전송되며 URL에 포함되지 않습니다.
       </p>
 
       <Card className="mt-6 p-6">

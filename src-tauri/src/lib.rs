@@ -1,6 +1,6 @@
 //! LumaLink Streaming App (client) — Tauri shell around the React UI.
 //!
-//! Native DXGI+NVENC path: TCP media client (`media_client`) bridges
+//! Native DXGI+NVENC path: UDP media client (`media_client`, LLU2) bridges
 //! Annex-B H.264 into the webview for WebCodecs decode. Legacy WebRTC
 //! remains available as a fallback transport in the TypeScript layer.
 

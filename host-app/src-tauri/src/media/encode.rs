@@ -2,8 +2,24 @@
 
 use std::io::{Read, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
-use std::sync::mpsc;
+use std::sync::{mpsc, OnceLock};
 use std::thread;
+
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
+/// Hide console window when spawning ffmpeg on Windows (avoids 0.05s flash).
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+fn ffmpeg_command() -> Command {
+    let mut cmd = Command::new("ffmpeg");
+    #[cfg(windows)]
+    {
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    cmd
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -50,14 +66,21 @@ pub fn probe_preferred_backend() -> EncoderBackend {
     }
 }
 
+fn ffmpeg_encoder_list() -> &'static str {
+    static LIST: OnceLock<String> = OnceLock::new();
+    LIST.get_or_init(|| {
+        ffmpeg_command()
+            .args(["-hide_banner", "-encoders"])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .output()
+            .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
+            .unwrap_or_default()
+    })
+}
+
 fn ffmpeg_has_encoder(name: &str) -> bool {
-    let Ok(output) = Command::new("ffmpeg")
-        .args(["-hide_banner", "-encoders"])
-        .output()
-    else {
-        return false;
-    };
-    String::from_utf8_lossy(&output.stdout).contains(name)
+    ffmpeg_encoder_list().contains(name)
 }
 
 struct FfmpegEncoder {
@@ -80,7 +103,8 @@ impl FfmpegEncoder {
         let bitrate = format!("{}M", bitrate_mbps.max(1));
         let fps_s = fps.clamp(15, 500).to_string();
         let size = format!("{width}x{height}");
-        let gop = fps.clamp(15, 500).to_string();
+        // Shorter GOP (~0.5s) so PLI recovery / late joiners get an IDR sooner.
+        let gop = ((fps.clamp(15, 500) + 1) / 2).max(15).to_string();
 
         let mut args: Vec<String> = vec![
             "-hide_banner".into(),
@@ -161,7 +185,7 @@ impl FfmpegEncoder {
 
         args.extend(["-f".into(), "h264".into(), "pipe:1".into()]);
 
-        let mut child = Command::new("ffmpeg")
+        let mut child = ffmpeg_command()
             .args(&args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

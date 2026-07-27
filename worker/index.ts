@@ -95,6 +95,12 @@ app.post("/api/auth/login", async (c) => {
     return c.json({ error: "이메일과 비밀번호를 입력해주세요." }, 400);
   }
 
+  // Uniform failure path + tiny artificial delay to slow credential stuffing.
+  const fail = async () => {
+    await new Promise((r) => setTimeout(r, 250 + Math.floor(Math.random() * 200)));
+    return c.json({ error: "이메일 또는 비밀번호가 올바르지 않습니다." }, 401);
+  };
+
   const user = await c.env.DB.prepare(
     "SELECT id, email, password_hash, salt FROM users WHERE email = ?"
   )
@@ -102,12 +108,12 @@ app.post("/api/auth/login", async (c) => {
     .first<UserRow>();
 
   if (!user) {
-    return c.json({ error: "이메일 또는 비밀번호가 올바르지 않습니다." }, 401);
+    return fail();
   }
 
   const computedHash = await hashPassword(password, user.salt);
   if (!timingSafeEqual(computedHash, user.password_hash)) {
-    return c.json({ error: "이메일 또는 비밀번호가 올바르지 않습니다." }, 401);
+    return fail();
   }
 
   const token = await signToken({ sub: user.id, exp: Date.now() + TOKEN_TTL_MS }, c.env.JWT_SECRET);

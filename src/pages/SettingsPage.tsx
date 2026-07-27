@@ -310,6 +310,18 @@ export function SettingsPage() {
           )}
         </Card>
 
+        <Card className="p-5">
+          <h2 className="mb-2 text-sm font-semibold text-slate-200">연결 진단 (v0.5)</h2>
+          <ul className="space-y-1.5 text-xs leading-relaxed text-slate-500">
+            <li>· 시그널링: PIN은 WebSocket 본문만 사용 (URL 쿼리 금지)</li>
+            <li>· 미디어: LLU2 + mediaToken, CRC/NACK/PLI, payload XOR</li>
+            <li>· 호스트 오디오: WASAPI loopback → AAC (설정에서 호스트 오디오 ON일 때)</li>
+            <li>· HUD 지연시간은 UDP RTT(ms), 패킷 손실은 프레임 갭 추정</li>
+            <li>· 끊기면 최대 3회 자동 재연결 (Player 화면)</li>
+            <li>· Android APK: `npm run tauri:android:build` 또는 Actions `build-android`</li>
+          </ul>
+        </Card>
+
         <div className="flex justify-end">
           <Button
             variant="secondary"

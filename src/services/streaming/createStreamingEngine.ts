@@ -3,9 +3,9 @@ import type { StreamingEngine } from "./StreamingEngine";
 import type { StreamConnectConfig } from "@/types/domain";
 
 /**
- * Prefer native DXGI+NVENC (TCP H.264 + WebCodecs) inside the Tauri
- * streaming app. Falls back is not automatic here — browsers that lack
- * the Tauri media bridge should not enter the player route.
+ * Prefer native DXGI+NVENC (custom UDP H.264 + WebCodecs) inside the Tauri
+ * streaming app. Browsers that lack the Tauri media bridge should not
+ * enter the player route.
  */
 export function createStreamingEngine(config: StreamConnectConfig): StreamingEngine {
   if (!config.realHost) {

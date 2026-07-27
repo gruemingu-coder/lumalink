@@ -38,6 +38,9 @@ export function useStreamingSession(): UseStreamingSessionResult {
   const [status, setStatus] = useState<StreamSessionStatus>("idle");
   const [stats, setStats] = useState<StreamStats | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const autoRetryRef = useRef(0);
+  const stopRequestedRef = useRef(false);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const teardown = useCallback(async () => {
     unsubscribersRef.current.forEach((unsub) => unsub());
@@ -52,12 +55,36 @@ export function useStreamingSession(): UseStreamingSessionResult {
     setError(null);
     setStats(null);
     lastConfigRef.current = config;
+    stopRequestedRef.current = false;
 
     const engine = createStreamingEngine(config);
     engineRef.current = engine;
 
     unsubscribersRef.current = [
-      engine.onStatusChange(setStatus),
+      engine.onStatusChange((next) => {
+        setStatus(next);
+        if (
+          (next === "error" || next === "ended") &&
+          !stopRequestedRef.current &&
+          lastConfigRef.current &&
+          autoRetryRef.current < 3
+        ) {
+          autoRetryRef.current += 1;
+          setStatus("reconnecting");
+          if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+          reconnectTimerRef.current = setTimeout(() => {
+            void (async () => {
+              await teardown();
+              if (lastConfigRef.current && !stopRequestedRef.current) {
+                await start(lastConfigRef.current);
+              }
+            })();
+          }, 1200 * autoRetryRef.current);
+        }
+        if (next === "streaming") {
+          autoRetryRef.current = 0;
+        }
+      }),
       engine.onStats(setStats),
     ];
 
@@ -74,10 +101,29 @@ export function useStreamingSession(): UseStreamingSessionResult {
           ? err.message
           : "스트리밍 연결 중 알 수 없는 오류가 발생했습니다."
       );
+      if (!stopRequestedRef.current && autoRetryRef.current < 3 && lastConfigRef.current) {
+        autoRetryRef.current += 1;
+        setStatus("reconnecting");
+        if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = setTimeout(() => {
+          void (async () => {
+            await teardown();
+            if (lastConfigRef.current && !stopRequestedRef.current) {
+              await start(lastConfigRef.current);
+            }
+          })();
+        }, 1200 * autoRetryRef.current);
+      }
     }
-  }, []);
+  }, [teardown]);
 
   const stop = useCallback(async () => {
+    stopRequestedRef.current = true;
+    autoRetryRef.current = 0;
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
     await teardown();
     setStatus("ended");
   }, [teardown]);

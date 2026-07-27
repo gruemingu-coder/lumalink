@@ -40,6 +40,14 @@ export function App() {
   const [clientCount, setClientCount] = useState(0);
   const [shareError, setShareError] = useState<string | null>(null);
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [mediaStats, setMediaStats] = useState<{
+    streaming: boolean;
+    viewers: number;
+    framesSent: number;
+    audioSent: number;
+    backend: string;
+    hostAudio: boolean;
+  } | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   // The screen is captured once and its tracks are shared across every
@@ -198,6 +206,7 @@ export function App() {
         const backend = await invoke<string>("start_native_stream", {
           fps: quality?.fps ?? 60,
           bitrateMbps: quality?.bitrateMbps ?? 25,
+          hostAudio: quality?.hostAudio ?? true,
         });
         sessionsRef.current.set(clientId, { kind: "native" });
         refreshOverallState();
@@ -310,7 +319,34 @@ export function App() {
   useEffect(() => {
     invoke<string>("get_pin").then(setPin).catch(() => setPin(null));
     loadGames();
+    let unlisten: (() => void) | undefined;
+    void import("@tauri-apps/api/event").then(({ listen }) =>
+      listen("lumalink-pin-rotated", () => {
+        void invoke<string>("get_pin").then(setPin).catch(() => undefined);
+      }).then((fn) => {
+        unlisten = fn;
+      })
+    );
+    return () => unlisten?.();
   }, [loadGames]);
+
+  useEffect(() => {
+    const tick = () => {
+      void invoke<{
+        streaming: boolean;
+        viewers: number;
+        framesSent: number;
+        audioSent: number;
+        backend: string;
+        hostAudio: boolean;
+      } | null>("media_stats")
+        .then(setMediaStats)
+        .catch(() => undefined);
+    };
+    tick();
+    const id = window.setInterval(tick, 2000);
+    return () => window.clearInterval(id);
+  }, []);
 
   useEffect(() => {
     const port = SIGNALING_PORT;
@@ -452,8 +488,8 @@ export function App() {
           {pin ?? "----"}
         </p>
         <p className="mt-3 text-xs text-slate-500">
-          LumaLink 앱/웹의 "IP로 실제 PC 연결" 화면에서 이 PC의 IP 주소와 이 PIN을 입력하세요. 같은
-          PIN으로 여러 기기가 동시에 연결할 수 있습니다.
+          LumaLink 앱의 페어링 화면에서 이 PC의 IP와 PIN을 입력하세요. PIN은 URL이 아닌 연결
+          메시지 본문으로만 전달됩니다. 네이티브 스트리밍(UDP)은 동시에 시청자 1명만 허용합니다.
         </p>
         <button
           type="button"
@@ -476,6 +512,38 @@ export function App() {
         </div>
         <p className="mt-2 text-sm font-medium text-slate-100">{connStateLabel(connState, clientCount)}</p>
         {shareError && <p className="mt-2 text-sm text-danger-400">{shareError}</p>}
+        {mediaStats && (
+          <dl className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-400 sm:grid-cols-3">
+            <div>
+              <dt className="text-slate-600">미디어</dt>
+              <dd className="font-medium text-slate-200">
+                {mediaStats.streaming ? "스트리밍 중" : "대기"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-slate-600">인코더</dt>
+              <dd className="font-medium text-slate-200">{mediaStats.backend}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-600">UDP 시청자</dt>
+              <dd className="font-medium text-slate-200">{mediaStats.viewers}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-600">영상 프레임</dt>
+              <dd className="font-medium text-slate-200">{mediaStats.framesSent}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-600">오디오</dt>
+              <dd className="font-medium text-slate-200">
+                {mediaStats.hostAudio ? `${mediaStats.audioSent} pkt` : "끔"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-slate-600">프로토콜</dt>
+              <dd className="font-medium text-slate-200">LLU2</dd>
+            </div>
+          </dl>
+        )}
         <div className="mt-3 flex flex-wrap gap-2">
           {clientCount > 0 && (
             <button
@@ -533,8 +601,8 @@ export function App() {
       <footer className="text-center text-xs text-slate-600">
         <p>
           창을 닫아도 시스템 트레이에서 계속 실행되며 연결을 받을 수 있습니다. 완전히 종료하려면
-          트레이 아이콘 메뉴에서 "종료"를 선택하세요. LAN 환경에서만 사용하도록 설계되었습니다
-          (암호화되지 않은 시그널링).
+          트레이 아이콘 메뉴에서 "종료"를 선택하세요. LAN 전용 · 시그널링은 ws:// · 미디어는
+          LLU2(mediaToken + XOR).
         </p>
         <p className="mt-2 text-[11px] text-slate-700">
           LumaLink는 독립적인 프로젝트이며 특정 상용 소프트웨어와 무관합니다. 모든 브랜드 자산은

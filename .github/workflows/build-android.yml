@@ -1,0 +1,74 @@
+name: Build Android APK (Streaming)
+
+# Builds a debug/release APK for the LumaLink Streaming client via Tauri 2 mobile.
+# Requires Android SDK on the runner. Host stays Windows-only (DXGI).
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Ensure icons
+        shell: bash
+        run: |
+          if [ ! -f src-tauri/icons/icon.png ]; then
+            python3 - <<'PY'
+          from struct import pack
+          import zlib, pathlib
+          def chunk(t, d):
+              return pack('>I', len(d)) + t + d + pack('>I', zlib.crc32(t + d) & 0xffffffff)
+          raw = b''.join(b'\x00' + bytes([30,40,80])*1024 for _ in range(1024))
+          png = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', pack('>IIBBBBB', 1024, 1024, 8, 2, 0, 0, 0))
+          png += chunk(b'IDAT', zlib.compress(raw, 9)) + chunk(b'IEND', b'')
+          pathlib.Path('placeholder.png').write_bytes(png)
+          PY
+            npx tauri icon placeholder.png
+          fi
+
+      - name: Init Android project if missing
+        run: |
+          if [ ! -d src-tauri/gen/android ]; then
+            npx tauri android init --ci || true
+          fi
+
+      - name: Build Android APK
+        run: npx tauri android build --apk
+        continue-on-error: true
+
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lumalink-android-apk
+          path: |
+            src-tauri/gen/android/**/apk/**/*.apk
+            src-tauri/gen/android/**/*.apk
+          if-no-files-found: warn

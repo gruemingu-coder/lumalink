@@ -54,6 +54,8 @@ export type SignalingMessage =
       macAddress?: string | null;
       mediaPort?: number;
       captureBackend?: "nvenc" | "software";
+      mediaToken?: string | null;
+      protocol?: string;
     }
   | { type: "auth-fail"; reason: string }
   | { type: "offer"; sdp: string; gameId?: string | null; quality?: RemoteQualitySettings; clientId?: string }

@@ -151,6 +151,11 @@ export function PlayerPage() {
               <p className="text-sm text-slate-300" aria-live="polite">
                 {statusText[status]}
               </p>
+              {status === "reconnecting" && (
+                <p className="max-w-xs text-center text-xs text-slate-500">
+                  네트워크 흔들림이 감지되어 자동으로 다시 연결하는 중입니다.
+                </p>
+              )}
             </div>
           )}
 

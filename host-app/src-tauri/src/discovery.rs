@@ -26,15 +26,25 @@ pub async fn run(state: Arc<SignalingState>) {
         return;
     }
 
+    let mut last_payload = String::new();
     loop {
         let payload = serde_json::json!({
             "type": "lumalink-host-announce",
             "name": host_display_name(),
             "signalPort": SIGNALING_PORT,
             "clientCount": state.client_count(),
+            "protocol": "LLU2",
         })
         .to_string();
+        // Always announce, but avoid redundant identical floods when nothing changed
+        // by slightly backing off (still ≤5s so discovery stays snappy).
+        let interval = if payload == last_payload {
+            Duration::from_secs(5)
+        } else {
+            Duration::from_secs(2)
+        };
+        last_payload = payload.clone();
         let _ = socket.send_to(payload.as_bytes(), ("255.255.255.255", DISCOVERY_PORT));
-        tokio::time::sleep(Duration::from_secs(2)).await;
+        tokio::time::sleep(interval).await;
     }
 }

@@ -57,9 +57,14 @@ fn move_normalized(enigo: &mut Enigo, x: f64, y: f64) -> Result<(), String> {
 }
 
 fn send_key(enigo: &mut Enigo, js_key: &str, direction: Direction) -> Result<(), String> {
+    // Block OS-level dangerous / session-stealing keys from remote injection.
+    if matches!(
+        js_key,
+        "Meta" | "MetaLeft" | "MetaRight" | "OS" | "Super" | "ContextMenu"
+    ) {
+        return Ok(());
+    }
     let Some(key) = map_key(js_key) else {
-        // Unknown/unsupported key — silently ignore rather than fail the
-        // whole session over e.g. an unmapped media key.
         return Ok(());
     };
     enigo.key(key, direction).map_err(|e| e.to_string())

@@ -1,6 +1,6 @@
 [package]
 name = "lumalink-host"
-version = "0.4.0"
+version = "0.5.0"
 description = "LumaLink Host App - DXGI + NVENC native capture for LumaLink streaming clients."
 authors = ["LumaLink"]
 edition = "2021"

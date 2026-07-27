@@ -102,9 +102,7 @@ export class WebRtcStreamingEngine implements StreamingEngine {
       let ws: WebSocket;
       try {
         ws = new WebSocket(
-          `ws://${realHost.address}:${realHost.signalPort}/signal?role=client&pin=${encodeURIComponent(
-            realHost.pairingPin
-          )}`
+          `ws://${realHost.address}:${realHost.signalPort}/signal?role=client`
         );
       } catch {
         settleReject(new Error("호스트 주소가 올바르지 않습니다."));

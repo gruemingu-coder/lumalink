@@ -44,7 +44,7 @@ export function connectToRealHost(
     };
 
     try {
-      ws = new WebSocket(`ws://${address}:${signalPort}/signal?role=client&pin=${encodeURIComponent(pin)}`);
+      ws = new WebSocket(`ws://${address}:${signalPort}/signal?role=client`);
     } catch {
       reject(new RealHostAuthError("호스트 주소 형식이 올바르지 않습니다."));
       return;

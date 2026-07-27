@@ -32,6 +32,12 @@ export function StreamHud({ stats, visible }: StreamHudProps) {
       {stats && stats.packetLossPct > 0 && (
         <HudChip label="패킷 손실" value={`${stats.packetLossPct}%`} valueClassName="text-warn-400" />
       )}
+      {stats && (
+        <HudChip
+          label="디코더"
+          value={stats.decoder === "hardware" ? "HW" : "SW"}
+        />
+      )}
     </div>
   );
 }

@@ -76,8 +76,11 @@ pub fn launch_big_picture() -> Result<(), String> {
 fn open_steam_uri(uri: &str) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         std::process::Command::new("cmd")
             .args(["/c", "start", "", uri])
+            .creation_flags(CREATE_NO_WINDOW)
             .spawn()
             .map_err(|e| e.to_string())?;
         Ok(())

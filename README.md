@@ -32,8 +32,8 @@ UI·브랜딩·코드는 이 프로젝트를 위해 새로 작성되었습니다
   트레이 메뉴의 "종료".
 - **고FPS 설정**: 최대 500 FPS 목표(실제 값은 모니터·GPU·네트워크에 따라 제한).
 - **DXGI + NVENC**: 호스트는 Windows DXGI 데스크톱 복제로 캡처하고, PATH의 `ffmpeg`로
-  `h264_nvenc`(없으면 `libx264`) 인코딩 후 TCP로 전송합니다. Sunshine/Moonlight 프로토콜과는
-  무관합니다.
+  `h264_nvenc`(없으면 `libx264`) 인코딩 후 **자체 UDP(LLU2)** 로 전송합니다.
+  Sunshine/Moonlight 프로토콜과는 무관합니다.
 
 ## 화면 구성
 
@@ -53,7 +53,8 @@ UI·브랜딩·코드는 이 프로젝트를 위해 새로 작성되었습니다
 - React 18 + TypeScript + Vite + Tailwind CSS
 - React Router v6 (브라우저: 소개만 / Tauri: 풀 앱 + 로그인 게이트)
 - Cloudflare Workers (Hono) + D1 — 계정·기기 동기화 API
-- DXGI + ffmpeg (`h264_nvenc` / `libx264`) + TCP 미디어 + WebCodecs 디코드
+- DXGI + ffmpeg (`h264_nvenc` / `libx264`) + 자체 UDP 미디어(LLU2: mediaToken/CRC/NACK/PLI/XOR) + WebCodecs 디코드
+- v0.5 보안: PIN은 WebSocket 본문만, URL 금지, 인증 rate-limit, UDP는 mediaToken + payload XOR
 - 호스트 로컬 WebSocket 시그널링 (세션/입력), Tauri 2 — MSI, store, 트레이
 
 ## 로컬 실행
