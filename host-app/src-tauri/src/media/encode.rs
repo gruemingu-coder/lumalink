@@ -183,7 +183,13 @@ impl FfmpegEncoder {
             EncoderBackend::Software
         };
 
-        args.extend(["-f".into(), "h264".into(), "pipe:1".into()]);
+        args.extend([
+            "-bsf:v".into(),
+            "dump_extra=freq=keyframe".into(),
+            "-f".into(),
+            "h264".into(),
+            "pipe:1".into(),
+        ]);
 
         let mut child = ffmpeg_command()
             .args(&args)

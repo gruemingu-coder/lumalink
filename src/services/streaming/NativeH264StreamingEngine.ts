@@ -199,7 +199,7 @@ export class NativeH264StreamingEngine implements StreamingEngine {
       this.unlistenFrame?.();
       this.unlistenAudio?.();
       this.unlistenStats?.();
-      // LLU2 emits raw bytes (number[]). Legacy base64 string still accepted.
+      // Prefer base64 (stable IPC); number[] still accepted for older builds.
       this.unlistenFrame = await listen<number[] | string>("lumalink-media-frame", (event) => {
         this.onAnnexBFrame(event.payload);
       });
@@ -260,18 +260,33 @@ export class NativeH264StreamingEngine implements StreamingEngine {
     if (!this.configured) {
       if (!isKey) return;
       try {
+        // Annex-B with in-band SPS/PPS (ffmpeg dump_extra on keyframes).
         this.decoder.configure({
-          codec: "avc1.640028",
+          codec: "avc1.42E01E",
           optimizeForLatency: true,
+          hardwareAcceleration: "prefer-hardware",
         });
         this.configured = true;
       } catch (err) {
         console.error("VideoDecoder configure failed", err);
-        return;
+        try {
+          this.decoder.configure({
+            codec: "avc1.640028",
+            optimizeForLatency: true,
+          });
+          this.configured = true;
+        } catch (err2) {
+          console.error("VideoDecoder configure fallback failed", err2);
+          return;
+        }
       }
     }
 
     try {
+      // Drop if decoder is backed up (common with high FPS).
+      if (this.decoder.decodeQueueSize > 10) {
+        if (!isKey) return;
+      }
       this.decoder.decode(
         new EncodedVideoChunk({
           type: isKey ? "key" : "delta",
@@ -383,23 +398,50 @@ export class NativeH264StreamingEngine implements StreamingEngine {
   private drawFrame(frame: VideoFrame) {
     if (!this.canvas) {
       this.canvas = document.createElement("canvas");
+      this.canvas.setAttribute("aria-hidden", "true");
     }
     if (this.canvas.width !== frame.displayWidth || this.canvas.height !== frame.displayHeight) {
-      this.canvas.width = frame.displayWidth;
-      this.canvas.height = frame.displayHeight;
-      this.bindCanvasToVideo();
+      this.canvas.width = frame.displayWidth || frame.codedWidth;
+      this.canvas.height = frame.displayHeight || frame.codedHeight;
     }
+    this.ensureCanvasMounted();
     const ctx = this.canvas.getContext("2d");
     if (!ctx) return;
     ctx.drawImage(frame, 0, 0);
+    // Keep <video> path working where captureStream is reliable.
+    if (this.canvasStream) {
+      const track = this.canvasStream.getVideoTracks()[0] as
+        | (MediaStreamTrack & { requestFrame?: () => void })
+        | undefined;
+      track?.requestFrame?.();
+    }
+  }
+
+  /** Prefer painting a real canvas in the player (WebView2-safe). */
+  private ensureCanvasMounted() {
+    if (!this.canvas || !this.videoEl) return;
+    const parent = this.videoEl.parentElement;
+    if (!parent) return;
+    if (!this.canvas.isConnected) {
+      this.canvas.className = this.videoEl.className;
+      this.canvas.style.cssText =
+        "position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;";
+      parent.style.position = parent.style.position || "relative";
+      parent.insertBefore(this.canvas, this.videoEl);
+      this.videoEl.style.opacity = "0";
+      this.videoEl.style.pointerEvents = "none";
+    }
+    // Also feed <video> for APIs that expect a MediaStream.
+    if (!this.canvasStream) {
+      this.canvasStream = this.canvas.captureStream(60);
+      this.videoEl.srcObject = this.canvasStream;
+      this.videoEl.muted = true;
+      void this.videoEl.play().catch(() => undefined);
+    }
   }
 
   private bindCanvasToVideo() {
-    if (!this.canvas || !this.videoEl) return;
-    this.canvasStream?.getTracks().forEach((t) => t.stop());
-    this.canvasStream = this.canvas.captureStream(0);
-    this.videoEl.srcObject = this.canvasStream;
-    void this.videoEl.play().catch(() => undefined);
+    this.ensureCanvasMounted();
   }
 
   private buildQualitySettings(): RemoteQualitySettings | undefined {
@@ -492,9 +534,7 @@ export class NativeH264StreamingEngine implements StreamingEngine {
 
   attachRenderTarget(target: HTMLVideoElement): void {
     this.videoEl = target;
-    if (this.canvas) {
-      this.bindCanvasToVideo();
-    }
+    this.ensureCanvasMounted();
   }
 
   private setStatus(status: StreamSessionStatus) {

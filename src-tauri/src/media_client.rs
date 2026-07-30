@@ -308,7 +308,8 @@ fn run_client(
 
                 last_emitted_frame = frame_id;
                 frames_ok = frames_ok.saturating_add(1);
-                let _ = app.emit("lumalink-media-frame", assembled);
+                // Base64 is far more reliable than Vec<u8>→number[] over Tauri IPC.
+                let _ = app.emit("lumalink-media-frame", base64_encode(&assembled));
             }
             Ok(_) => {}
             Err(err)
@@ -390,6 +391,36 @@ fn xor_payload(buf: &mut [u8], key: &[u8; 16], frame_id: u32, frag_idx: u16) {
     for (i, b) in buf.iter_mut().enumerate() {
         *b ^= ks[i % 16];
     }
+}
+
+fn base64_encode(data: &[u8]) -> String {
+    const TABLE: &[u8] =
+        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
+    let mut i = 0;
+    while i + 3 <= data.len() {
+        let n = ((data[i] as u32) << 16) | ((data[i + 1] as u32) << 8) | (data[i + 2] as u32);
+        out.push(TABLE[((n >> 18) & 63) as usize] as char);
+        out.push(TABLE[((n >> 12) & 63) as usize] as char);
+        out.push(TABLE[((n >> 6) & 63) as usize] as char);
+        out.push(TABLE[(n & 63) as usize] as char);
+        i += 3;
+    }
+    let rem = data.len() - i;
+    if rem == 1 {
+        let n = (data[i] as u32) << 16;
+        out.push(TABLE[((n >> 18) & 63) as usize] as char);
+        out.push(TABLE[((n >> 12) & 63) as usize] as char);
+        out.push('=');
+        out.push('=');
+    } else if rem == 2 {
+        let n = ((data[i] as u32) << 16) | ((data[i + 1] as u32) << 8);
+        out.push(TABLE[((n >> 18) & 63) as usize] as char);
+        out.push(TABLE[((n >> 12) & 63) as usize] as char);
+        out.push(TABLE[((n >> 6) & 63) as usize] as char);
+        out.push('=');
+    }
+    out
 }
 
 #[cfg(test)]
