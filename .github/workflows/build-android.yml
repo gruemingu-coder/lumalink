@@ -36,6 +36,9 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Install NDK (required by Tauri Android)
+        run: sdkmanager "ndk;26.1.10909125"
+
       - name: Install frontend dependencies
         run: npm install
 
@@ -59,8 +62,11 @@ jobs:
       - name: Init Android project if missing
         run: |
           if [ ! -f src-tauri/gen/android/app/build.gradle.kts ] && [ ! -f src-tauri/gen/android/app/build.gradle ]; then
+            rm -rf src-tauri/gen/android
             npx tauri android init --ci
           fi
+        env:
+          CI: true
 
       - name: Build frontend
         run: npm run build
