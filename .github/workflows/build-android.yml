@@ -91,6 +91,35 @@ jobs:
           NDK_HOME: ${{ env.NDK_HOME }}
           JAVA_HOME: ${{ env.JAVA_HOME }}
 
+      - name: Sign APK (required for sideload install)
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS="${ANDROID_HOME}/build-tools/${ANDROID_API}.0.0"
+          UNSIGNED=$(find src-tauri/gen/android -name '*.apk' ! -name '*signed*' | head -n1)
+          if [ -z "${UNSIGNED:-}" ]; then
+            echo "No APK found to sign"
+            exit 1
+          fi
+          echo "Signing $UNSIGNED"
+          ALIGNED="${UNSIGNED%.apk}-aligned.apk"
+          SIGNED="${UNSIGNED%.apk}-signed.apk"
+          "$BUILD_TOOLS/zipalign" -f -p 4 "$UNSIGNED" "$ALIGNED"
+          keytool -genkeypair -v \
+            -keystore /tmp/lumalink-release.keystore \
+            -storepass lumalink \
+            -alias lumalink \
+            -keypass lumalink \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=LumaLink, OU=Mobile, O=LumaLink, L=Local, ST=Local, C=KR"
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks /tmp/lumalink-release.keystore \
+            --ks-pass pass:lumalink \
+            --key-pass pass:lumalink \
+            --out "$SIGNED" "$ALIGNED"
+          "$BUILD_TOOLS/apksigner" verify --verbose "$SIGNED"
+          mkdir -p releases
+          cp "$SIGNED" releases/LumaLink-Streaming.apk
+
       - name: Upload build log on failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -104,8 +133,8 @@ jobs:
         with:
           name: lumalink-android-apk
           path: |
+            releases/LumaLink-Streaming.apk
             src-tauri/gen/android/**/apk/**/*.apk
-            src-tauri/gen/android/**/*.apk
           if-no-files-found: error
 
   publish-apk-to-site:
@@ -127,8 +156,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p public/downloads
-          apk=$(find artifacts/android -name '*.apk' | head -n1)
+          mkdir -p releases
+          apk=$(find artifacts/android -name 'LumaLink-Streaming.apk' | head -n1)
+          if [ -z "${apk:-}" ]; then
+            apk=$(find artifacts/android -name '*signed*.apk' | head -n1)
+          fi
+          if [ -z "${apk:-}" ]; then
+            apk=$(find artifacts/android -name '*.apk' | head -n1)
+          fi
           cp "$apk" releases/LumaLink-Streaming.apk
 
       - name: Commit and push APK

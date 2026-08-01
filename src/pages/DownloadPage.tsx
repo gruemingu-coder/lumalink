@@ -245,6 +245,16 @@ export function DownloadPage() {
         </Card>
 
         <Card className="mt-6 p-6">
+          <h2 className="text-base font-semibold text-slate-100">Android 설치 안내</h2>
+          <ul className="mt-3 space-y-2 text-sm text-slate-400">
+            <li>· 설정 → 보안 → <span className="text-slate-300">알 수 없는 앱 설치</span> 허용</li>
+            <li>· 이전에 설치한 LumaLink가 있으면 먼저 삭제 후 재설치</li>
+            <li>· 다운로드가 HTML로 저장되면 Chrome 메뉴 → <span className="text-slate-300">다시 다운로드</span>로 APK를 받으세요</li>
+            <li>· Wi‑Fi로 APK(~95MB) 받은 뒤 파일 관리자에서 `.apk`를 탭해 설치</li>
+          </ul>
+        </Card>
+
+        <Card className="mt-6 p-6">
           <h2 className="text-base font-semibold text-slate-100">저작권 · 독립성 고지</h2>
           <ul className="mt-3 space-y-2 text-xs leading-relaxed text-slate-500">
             <li>
