@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Logo } from "@/components/layout/Logo";
 import { Card } from "@/components/ui/Card";
@@ -13,7 +14,7 @@ const HOST_APP_DOWNLOAD_URL = "/downloads/LumaLink-Host-Setup.msi";
 const STREAMING_WIN_URL = "/downloads/LumaLink-Streaming-Setup.msi";
 const STREAMING_MAC_URL = "/downloads/LumaLink-Streaming-macOS.dmg";
 const STREAMING_ANDROID_URL =
-  "https://github.com/gruemingu-coder/lumalink/raw/main/releases/LumaLink-Streaming.apk";
+  "https://raw.githubusercontent.com/gruemingu-coder/lumalink/main/releases/LumaLink-Streaming.apk";
 
 const HOST = {
   name: "LumaLink Host",
@@ -48,10 +49,10 @@ const CLIENTS = [
     platform: "macOS",
     format: "DMG",
     name: "Streaming · Mac",
-    hint: "Apple Silicon / Intel Mac",
+    hint: "Apple Silicon / Intel Mac (빌드 준비 중)",
     url: STREAMING_MAC_URL,
     fileName: "LumaLink-Streaming-macOS.dmg",
-    ready: true,
+    ready: false,
   },
   {
     key: "android",
@@ -119,9 +120,9 @@ export function DownloadPage() {
             ))}
           </ul>
           <div className="mt-6">
-            <a href={HOST.downloadUrl} download={HOST.fileName}>
-              <Button className="w-full">{HOST.name} 다운로드 (.msi)</Button>
-            </a>
+            <DownloadLink href={HOST.downloadUrl} fileName={HOST.fileName} variant="primary">
+              {HOST.name} 다운로드 (.msi)
+            </DownloadLink>
             <p className="mt-2 text-center text-xs text-slate-600">{HOST.fileName}</p>
           </div>
         </Card>
@@ -145,20 +146,27 @@ export function DownloadPage() {
                 <div className="mt-4 grow" />
                 {client.url && client.ready ? (
                   <>
-                    <a href={client.url} download={client.fileName}>
-                      <Button className="w-full" variant="secondary">
-                        다운로드 (.{client.format.toLowerCase()})
-                      </Button>
-                    </a>
+                    <DownloadLink
+                      href={client.url}
+                      fileName={client.fileName}
+                      variant="secondary"
+                      external={client.url.startsWith("http")}
+                    >
+                      다운로드 (.{client.format.toLowerCase()})
+                    </DownloadLink>
                     <p className="mt-2 text-center text-xs text-slate-600">{client.fileName}</p>
                   </>
                 ) : (
                   <>
                     <Button className="w-full" variant="secondary" disabled>
-                      IPA · Actions / TestFlight
+                      {client.key === "ios"
+                        ? "IPA · Actions / TestFlight"
+                        : `${client.platform} · 준비 중`}
                     </Button>
                     <p className="mt-2 text-center text-xs text-slate-600">
-                      `build-apple.yml` 아티팩트 · Apple 서명 필요
+                      {client.key === "ios"
+                        ? "`build-apple.yml` 아티팩트 · Apple 서명 필요"
+                        : "Mac 빌드는 GitHub Actions `build-apple`에서 제공 예정"}
                     </p>
                   </>
                 )}
@@ -271,5 +279,36 @@ function CheckIcon() {
     >
       <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
     </svg>
+  );
+}
+
+function DownloadLink({
+  href,
+  fileName,
+  variant = "primary",
+  external = false,
+  children,
+}: {
+  href: string;
+  fileName: string;
+  variant?: "primary" | "secondary";
+  external?: boolean;
+  children: ReactNode;
+}) {
+  const className =
+    variant === "primary"
+      ? "inline-flex w-full items-center justify-center rounded-xl bg-brand-600 px-6 py-3.5 text-base font-medium text-white shadow-glow transition-colors hover:bg-brand-500"
+      : "inline-flex w-full items-center justify-center rounded-xl border border-base-600 bg-base-800 px-4 py-2.5 text-sm font-medium text-slate-100 transition-colors hover:bg-base-700";
+
+  return (
+    <a
+      href={href}
+      download={external ? undefined : fileName}
+      target={external ? "_blank" : undefined}
+      rel={external ? "noopener noreferrer" : undefined}
+      className={className}
+    >
+      {children}
+    </a>
   );
 }
