@@ -14,6 +14,10 @@ on:
 permissions:
   contents: write
 
+env:
+  NDK_VERSION: "27.0.12077973"
+  ANDROID_API: "34"
+
 jobs:
   android:
     runs-on: ubuntu-latest
@@ -28,6 +32,10 @@ jobs:
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
 
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -36,8 +44,11 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install NDK (required by Tauri Android)
-        run: sdkmanager "ndk;26.1.10909125"
+      - name: Install Android SDK components + NDK
+        run: |
+          sdkmanager "platforms;android-${ANDROID_API}" "build-tools;${ANDROID_API}.0.0" "ndk;${NDK_VERSION}"
+          echo "NDK_HOME=${ANDROID_HOME}/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
 
       - name: Install frontend dependencies
         run: npm install
@@ -67,12 +78,16 @@ jobs:
           fi
         env:
           CI: true
+          NDK_HOME: ${{ env.NDK_HOME }}
 
       - name: Build frontend
         run: npm run build
 
       - name: Build Android APK
-        run: npx tauri android build --apk
+        run: npx tauri android build --apk -v
+        env:
+          NDK_HOME: ${{ env.NDK_HOME }}
+          JAVA_HOME: ${{ env.JAVA_HOME }}
 
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
