@@ -84,10 +84,20 @@ jobs:
         run: npm run build
 
       - name: Build Android APK
-        run: npx tauri android build --apk -v
+        run: |
+          set -o pipefail
+          npx tauri android build --apk -v 2>&1 | tee android-build.log
         env:
           NDK_HOME: ${{ env.NDK_HOME }}
           JAVA_HOME: ${{ env.JAVA_HOME }}
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-log
+          path: android-build.log
+          if-no-files-found: ignore
 
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
