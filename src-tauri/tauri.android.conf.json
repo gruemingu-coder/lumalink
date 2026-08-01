@@ -1,0 +1,24 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "LumaLink",
+  "identifier": "org.lumalink.streamingapp",
+  "app": {
+    "windows": [
+      {
+        "title": "LumaLink",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 360,
+        "minHeight": 480,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ]
+  },
+  "bundle": {
+    "android": {
+      "minSdkVersion": 26,
+      "versionCode": 5000
+    }
+  }
+}

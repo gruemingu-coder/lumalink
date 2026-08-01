@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "mobile-default",
+  "description": "LumaLink Streaming on Android/iOS",
+  "windows": ["main"],
+  "platforms": ["android", "iOS"],
+  "permissions": ["core:default", "store:default"]
+}

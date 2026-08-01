@@ -318,7 +318,7 @@ export function SettingsPage() {
             <li>· 호스트 오디오: WASAPI loopback → AAC (설정에서 호스트 오디오 ON일 때)</li>
             <li>· HUD 지연시간은 UDP RTT(ms), 패킷 손실은 프레임 갭 추정</li>
             <li>· 끊기면 최대 3회 자동 재연결 (Player 화면)</li>
-            <li>· Android APK: `npm run tauri:android:build` 또는 Actions `build-android`</li>
+            <li>· 클라이언트: Win MSI · Mac DMG · Android APK · iOS IPA (Actions `build-desktop` / `build-apple` / `build-android`)</li>
           </ul>
         </Card>
 

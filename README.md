@@ -11,8 +11,8 @@ UI·브랜딩·코드는 이 프로젝트를 위해 새로 작성되었습니다
 | 부분 | 위치 | 설명 |
 | --- | --- | --- |
 | 웹사이트 | `src/` (브라우저 빌드) | 소개·다운로드 전용. `/`와 `/download`만 노출하며, 브라우저에서는 스트리밍 UI에 들어가지 않습니다. |
-| 스트리밍 앱 | `src/` + `src-tauri/` | 같은 React UI를 Tauri로 패키징. **계정 로그인 필수**, 클라우드에 등록된 PC 목록 동기화, **네이티브 H.264 수신(WebCodecs)**, WOL/LAN 검색. MSI로 배포. |
-| 호스트 앱 | `host-app/` | Tauri + Rust. 게이밍 PC에 설치. **계정 로그인 필수**, PIN 페어링, Steam 스캔, **DXGI + NVENC(ffmpeg) 캡처**, 입력 주입, **트레이 백그라운드**, 클라우드 하트비트. MSI로 배포. |
+| 스트리밍 앱 | `src/` + `src-tauri/` | 같은 React UI를 Tauri로 패키징. **Windows / macOS / Android / iOS**. 계정 로그인, 클라우드 PC 목록, **LLU2 H.264(WebCodecs)**, WOL/LAN 검색. |
+| 호스트 앱 | `host-app/` | Tauri + Rust. **Windows 게이밍 PC 전용**(DXGI). 계정 로그인, PIN, Steam, **NVENC/ffmpeg**, 입력 주입, 트레이, 클라우드 하트비트. MSI 배포. |
 
 계정 API는 Cloudflare Worker + D1 (`worker/`, `migrations/`)로 동작합니다. 정적 사이트와
 같은 Worker가 `/api/*`를 처리합니다.
@@ -55,7 +55,7 @@ UI·브랜딩·코드는 이 프로젝트를 위해 새로 작성되었습니다
 - Cloudflare Workers (Hono) + D1 — 계정·기기 동기화 API
 - DXGI + ffmpeg (`h264_nvenc` / `libx264`) + 자체 UDP 미디어(LLU2: mediaToken/CRC/NACK/PLI/XOR) + WebCodecs 디코드
 - v0.5 보안: PIN은 WebSocket 본문만, URL 금지, 인증 rate-limit, UDP는 mediaToken + payload XOR
-- 호스트 로컬 WebSocket 시그널링 (세션/입력), Tauri 2 — MSI, store, 트레이
+- 호스트 로컬 WebSocket 시그널링 (세션/입력), Tauri 2 — Windows MSI / macOS DMG / Android APK / iOS IPA
 
 ## 로컬 실행
 
@@ -84,14 +84,25 @@ npm run build
 npx wrangler deploy
 ```
 
-데스크톱 앱:
+네이티브 앱:
 
 ```powershell
-# 스트리밍 앱
+# 스트리밍 앱 (Windows)
 npm run tauri:dev
 npm run tauri:build
 
-# 호스트 앱
+# 스트리밍 · macOS (Mac에서)
+npm run tauri:mac:build
+
+# 스트리밍 · Android
+npm run tauri:android:init
+npm run tauri:android:build
+
+# 스트리밍 · iOS (Mac + Xcode)
+npm run tauri:ios:init
+npm run tauri:ios:build
+
+# 호스트 앱 (Windows만)
 cd host-app
 npm install
 npm run tauri:dev
@@ -100,7 +111,7 @@ npm run tauri:build
 
 ## 사용해보기 (실제 흐름)
 
-1. `/download`에서 Host MSI와 Streaming MSI를 설치합니다.
+1. `/download`에서 Host(Windows)와 Streaming(Win/Mac/Android)을 설치합니다. iOS는 Actions IPA / TestFlight.
 2. **같은 이메일/비밀번호**로 두 앱에 로그인(또는 회원가입)합니다.
 3. 호스트 앱이 트레이에서 대기하며 PIN을 표시하고, 클라우드에 이 PC를 등록합니다.
 4. 스트리밍 앱의 **내 PC**에 호스트가 자동으로 나타납니다. (안 보이면 LAN 검색/IP+PIN으로
@@ -121,16 +132,17 @@ src/                  웹사이트 + 스트리밍 앱 UI
   utils/              platform (isDesktopApp), cloudDevices, games
 worker/               Cloudflare Worker (Hono) — /api/auth/*, /api/devices
 migrations/           D1 스키마
-src-tauri/            스트리밍 앱 네이티브 (WOL, LAN discovery, store)
-host-app/             호스트 앱 (시그널링, Steam, 입력, tray, 하트비트)
+src-tauri/            스트리밍 앱 네이티브 (UDP media, WOL, LAN discovery, store)
+  gen/android, gen/ios  모바일 타겟 안내 (init으로 프로젝트 생성)
+host-app/             호스트 앱 Windows (시그널링, Steam, 입력, tray, 하트비트)
 ```
 
 ### 스트리밍 경로
 
-UI는 `StreamingEngine` 인터페이스만 봅니다. 현재는 항상 `WebRtcStreamingEngine`을
-사용합니다(모의 엔진/시드 PC는 제거됨).
+UI는 `StreamingEngine` 인터페이스만 봅니다. 기본은 `NativeH264StreamingEngine`
+(LLU2 UDP + WebCodecs). WebRTC 엔진은 폴백용으로 남아 있습니다.
 
-호스트 `startSharing()`은 클라이언트가 offer에 실어 보낸 `quality.streamStartAction`에 따라
+호스트 `startSharing()`은 클라이언트가 보낸 `quality.streamStartAction`에 따라
 `launch_big_picture` / `launch_custom_program`을 호출합니다.
 
 ### 계정 토큰
@@ -138,10 +150,17 @@ UI는 `StreamingEngine` 인터페이스만 봅니다. 현재는 항상 `WebRtcSt
 로그인 성공 시 받은 bearer token은 각 앱의 로컬 store에 저장되고, 다음 실행 시
 `GET /api/auth/me`로 검증해 유효하면 로그인 화면을 건너뜁니다.
 
-## MSI 배포
+## 앱 배포 (CI)
 
-태그(`v0.3.0` 등)를 푸시하면 `.github/workflows/build-desktop.yml`이 두 MSI를 빌드해
-`public/downloads/`에 고정 파일명으로 커밋합니다. 이후:
+태그(`v0.5.0` 등)를 푸시하면:
+
+| Workflow | 산출물 |
+| --- | --- |
+| `build-desktop.yml` | Host + Streaming Windows MSI → `public/downloads/` |
+| `build-apple.yml` | Streaming macOS DMG (+ iOS IPA 아티팩트) |
+| `build-android.yml` | Streaming APK → `public/downloads/` |
+
+이후 사이트 배포:
 
 ```powershell
 git pull
@@ -149,12 +168,15 @@ npm run build
 npx wrangler deploy
 ```
 
+iOS 기기 설치·TestFlight는 Apple Developer Team 시크릿(`APPLE_DEVELOPMENT_TEAM`)과 서명이 필요합니다.
+
 ## 알려진 한계
 
 - **LAN 전용 영상 경로**: 시그널링은 암호화되지 않은 `ws://`이며 PIN 인증만 있습니다.
   공용 인터넷에 포트를 열지 마세요. 계정 API만 HTTPS입니다.
-- **NAT 통과 없음**: STUN만 설정되어 있고 TURN이 없어 같은 네트워크 밖에서는 실패할 수
-  있습니다. 클라우드 동기화는 LAN IP를 기억할 뿐, 원격 중계는 하지 않습니다.
+- **NAT 통과 없음**: 같은 Wi-Fi/LAN 밖에서는 실패할 수 있습니다.
+- **Host는 Windows 전용**(DXGI). Mac/Linux 호스트는 없습니다.
+- **WebCodecs**: Android WebView / iOS WKWebView 버전에 따라 디코드가 안 될 수 있습니다.
 - **이메일 인증/비밀번호 재설정/OAuth**는 아직 없습니다.
 - 앱 아이콘은 `npx tauri icon`으로 생성하세요.
 
@@ -165,5 +187,5 @@ npx wrangler deploy
 - "LumaLink" 이름·로고·UI·코드는 전부 이 프로젝트를 위해 새로 만든 **오리지널 자산**입니다.
 - 언급될 수 있는 타사 제품명(예: Steam)은 각 소유자의 상표이며, 상호운용성 설명용으로만
   인용됩니다.
-- 실제 WebRTC 화면 공유는 Host/Streaming 데스크톱 앱을 설치하고 계정으로 로그인한 뒤에만
+- 실제 스트리밍은 Host + Streaming 네이티브 앱을 설치하고 계정으로 로그인한 뒤에만
   동작합니다. 이 웹사이트는 소개·다운로드 전용입니다.

@@ -67,7 +67,9 @@ export class NativeH264StreamingEngine implements StreamingEngine {
       throw new Error("NativeH264StreamingEngine requires config.realHost.");
     }
     if (typeof VideoDecoder === "undefined") {
-      throw new Error("이 환경은 WebCodecs VideoDecoder를 지원하지 않습니다.");
+      throw new Error(
+        "이 기기는 WebCodecs VideoDecoder를 지원하지 않습니다. Android는 System WebView를 최신으로 올리고, iOS는 16.4 이상이 필요합니다.",
+      );
     }
 
     this.settings = config.settings;

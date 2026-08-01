@@ -145,7 +145,7 @@ export function PairingPage() {
               </div>
             ) : (
               <p className="mt-5 rounded-xl border border-base-700 bg-base-800/40 p-3 text-center text-[11px] text-slate-500">
-                자동 검색은 LumaLink Streaming 데스크톱 앱에서만 지원됩니다. 웹에서는 IP 주소를
+                자동 검색은 LumaLink Streaming 앱에서만 지원됩니다. 웹에서는 IP 주소를
                 직접 입력해주세요.
               </p>
             )}

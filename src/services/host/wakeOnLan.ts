@@ -32,7 +32,7 @@ async function runningInTauri(): Promise<boolean> {
 export async function sendWakeOnLan(mac: string): Promise<void> {
   if (!(await runningInTauri())) {
     throw new WakeOnLanUnavailableError(
-      "PC 깨우기(Wake-on-LAN)는 LumaLink Streaming 데스크톱 앱에서만 사용할 수 있습니다."
+      "PC 깨우기(Wake-on-LAN)는 LumaLink Streaming 앱에서만 사용할 수 있습니다."
     );
   }
   const { invoke } = await import("@tauri-apps/api/core");

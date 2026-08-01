@@ -5,51 +5,72 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 
 /**
- * Served directly from this site (same origin) — see `public/downloads/`.
- * `.github/workflows/build-desktop.yml` builds both MSIs on every tag
- * push and commits them here under these exact stable filenames, so
- * these links never need to change between releases. Until the first
- * tagged CI run completes, the files won't exist yet and these links
- * will 404 — that's expected for a brand-new repo.
+ * Host MSI + Streaming clients. Windows/macOS/Android installers are
+ * published to `public/downloads/` by CI on tagged releases. iOS uses
+ * TestFlight / IPA from Actions until App Store listing exists.
  */
 const HOST_APP_DOWNLOAD_URL = "/downloads/LumaLink-Host-Setup.msi";
-const STREAMING_APP_DOWNLOAD_URL = "/downloads/LumaLink-Streaming-Setup.msi";
-const ANDROID_APK_HINT =
-  "Android APK는 GitHub Actions(`build-android.yml`) 아티팩트 또는 로컬 `npm run tauri:android:build`로 빌드합니다.";
+const STREAMING_WIN_URL = "/downloads/LumaLink-Streaming-Setup.msi";
+const STREAMING_MAC_URL = "/downloads/LumaLink-Streaming-macOS.dmg";
+const STREAMING_ANDROID_URL = "/downloads/LumaLink-Streaming.apk";
 
-const APPS = [
+const HOST = {
+  name: "LumaLink Host",
+  tagline: "스트리밍할 게이밍 PC에 설치 (Windows 전용)",
+  description:
+    "이 PC의 화면을 DXGI로 캡처하고 NVIDIA NVENC(또는 libx264)로 인코딩해 스트리밍합니다. PIN 페어링, Steam 목록, 입력 주입을 처리하며, 계정 로그인 후 창을 닫아도 트레이에서 대기합니다. 호스트 PC에 ffmpeg가 PATH에 있어야 합니다.",
+  bullets: [
+    "계정 로그인 (자동 로그인 지원)",
+    "PIN 본문 인증 + mediaToken (URL에 PIN 없음)",
+    "Steam 라이브러리 자동 스캔",
+    "DXGI + NVENC → LLU2 UDP (CRC/NACK/PLI/암호화)",
+    "원격 입력 (Win/Meta 키 차단) + 트레이 PIN 재발급",
+    "닫아도 트레이에서 백그라운드 실행",
+  ],
+  downloadUrl: HOST_APP_DOWNLOAD_URL,
+  fileName: "LumaLink-Host-Setup.msi",
+} as const;
+
+const CLIENTS = [
   {
-    key: "host",
-    name: "LumaLink Host",
-    tagline: "스트리밍할 게이밍 PC에 설치하세요",
-    description:
-      "이 PC의 화면을 DXGI로 캡처하고 NVIDIA NVENC(또는 libx264)로 인코딩해 스트리밍합니다. PIN 페어링, Steam 목록, 입력 주입을 처리하며, 계정 로그인 후 창을 닫아도 트레이에서 대기합니다. 호스트 PC에 ffmpeg가 PATH에 있어야 합니다.",
-    bullets: [
-      "계정 로그인 (자동 로그인 지원)",
-      "PIN 본문 인증 + mediaToken (URL에 PIN 없음)",
-      "Steam 라이브러리 자동 스캔",
-      "DXGI + NVENC → LLU2 UDP (CRC/NACK/PLI/암호화)",
-      "원격 입력 (Win/Meta 키 차단) + 트레이 PIN 재발급",
-      "닫아도 트레이에서 백그라운드 실행",
-    ],
-    downloadUrl: HOST_APP_DOWNLOAD_URL,
-    fileName: "LumaLink-Host-Setup.msi",
+    key: "windows",
+    platform: "Windows",
+    format: "MSI",
+    name: "Streaming · Windows",
+    hint: "노트북·미니PC에서 플레이",
+    url: STREAMING_WIN_URL,
+    fileName: "LumaLink-Streaming-Setup.msi",
+    ready: true,
   },
   {
-    key: "streaming",
-    name: "LumaLink Streaming App",
-    tagline: "게임을 플레이할 기기에 설치하세요",
-    description:
-      "실제 스트리밍은 데스크톱/Android 앱에서 동작합니다(이 웹사이트는 소개·다운로드 전용입니다). 계정으로 로그인하면 같은 계정에 등록된 PC를 IP/PIN을 직접 입력하지 않고도 목록에서 바로 찾을 수 있어요.",
-    bullets: [
-      "계정 로그인 (자동 로그인 지원)",
-      "로그인된 계정의 PC 자동 표시 (클라우드 동기화)",
-      "같은 Wi-Fi/LAN 호스트 자동 검색 + Wake-on-LAN",
-      "네이티브 H.264 (WebCodecs) + RTT/손실 통계 + 자동 재연결",
-      ANDROID_APK_HINT,
-    ],
-    downloadUrl: STREAMING_APP_DOWNLOAD_URL,
-    fileName: "LumaLink-Streaming-Setup.msi",
+    key: "macos",
+    platform: "macOS",
+    format: "DMG",
+    name: "Streaming · Mac",
+    hint: "Apple Silicon / Intel Mac",
+    url: STREAMING_MAC_URL,
+    fileName: "LumaLink-Streaming-macOS.dmg",
+    ready: true,
+  },
+  {
+    key: "android",
+    platform: "Android",
+    format: "APK",
+    name: "Streaming · Android",
+    hint: "휴대폰·태블릿 (사이드로드)",
+    url: STREAMING_ANDROID_URL,
+    fileName: "LumaLink-Streaming.apk",
+    ready: true,
+  },
+  {
+    key: "ios",
+    platform: "iPhone / iPad",
+    format: "IPA",
+    name: "Streaming · iOS",
+    hint: "Mac에서 빌드 · TestFlight 배포",
+    url: null as string | null,
+    fileName: "GitHub Actions → lumalink-ios",
+    ready: false,
   },
 ] as const;
 
@@ -72,54 +93,115 @@ export function DownloadPage() {
       <main className="mx-auto max-w-5xl px-4 py-14 sm:px-6">
         <div className="text-center">
           <Badge tone="brand" className="mb-4">
-            데스크톱 앱 (Windows, MSI)
+            Host (Windows) · Client (Win / Mac / Android / iOS)
           </Badge>
           <h1 className="text-3xl font-bold text-white sm:text-4xl">LumaLink 앱 다운로드</h1>
           <p className="mx-auto mt-3 max-w-xl text-slate-400">
-            게이밍 PC에는 호스트 앱을, 플레이할 기기에는 스트리밍 앱을 설치하세요. 두 앱 모두
-            Windows용 MSI 설치 파일이며, 이 사이트에서 직접 제공합니다(외부 사이트로 이동하지
-            않습니다).
+            게이밍 PC에는 Host를, 플레이할 기기에는 Streaming 앱을 설치하세요. 웹사이트는
+            소개·다운로드만 제공하며 실제 스트리밍은 네이티브 앱에서 동작합니다.
           </p>
         </div>
 
-        <div className="mt-10 grid grid-cols-1 gap-5 md:grid-cols-2">
-          {APPS.map((app) => (
-            <Card key={app.key} className="flex flex-col p-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-slate-100">{app.name}</h2>
-                <Badge tone="neutral">Windows · MSI</Badge>
-              </div>
-              <p className="mt-1 text-sm font-medium text-brand-400">{app.tagline}</p>
-              <p className="mt-3 text-sm text-slate-400">{app.description}</p>
-              <ul className="mt-4 space-y-1.5">
-                {app.bullets.map((bullet) => (
-                  <li key={bullet} className="flex items-start gap-2 text-sm text-slate-300">
-                    <CheckIcon />
-                    <span>{bullet}</span>
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-6">
-                <a href={app.downloadUrl} download={app.fileName}>
-                  <Button className="w-full">{app.name} 다운로드 (.msi)</Button>
-                </a>
-                <p className="mt-2 text-center text-xs text-slate-600">{app.fileName}</p>
-              </div>
-            </Card>
-          ))}
-        </div>
+        <Card className="mt-10 flex flex-col p-6">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-bold text-slate-100">{HOST.name}</h2>
+            <Badge tone="neutral">Windows · MSI</Badge>
+          </div>
+          <p className="mt-1 text-sm font-medium text-brand-400">{HOST.tagline}</p>
+          <p className="mt-3 text-sm text-slate-400">{HOST.description}</p>
+          <ul className="mt-4 space-y-1.5">
+            {HOST.bullets.map((bullet) => (
+              <li key={bullet} className="flex items-start gap-2 text-sm text-slate-300">
+                <CheckIcon />
+                <span>{bullet}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-6">
+            <a href={HOST.downloadUrl} download={HOST.fileName}>
+              <Button className="w-full">{HOST.name} 다운로드 (.msi)</Button>
+            </a>
+            <p className="mt-2 text-center text-xs text-slate-600">{HOST.fileName}</p>
+          </div>
+        </Card>
+
+        <section className="mt-10">
+          <h2 className="text-lg font-bold text-slate-100">LumaLink Streaming 클라이언트</h2>
+          <p className="mt-2 text-sm text-slate-400">
+            계정 로그인, LAN 검색, Wake-on-LAN, LLU2 H.264 스트리밍(WebCodecs). 같은 계정에
+            등록된 PC는 목록에서 바로 고를 수 있습니다.
+          </p>
+          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {CLIENTS.map((client) => (
+              <Card key={client.key} className="flex flex-col p-5">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-base font-semibold text-slate-100">{client.name}</h3>
+                  <Badge tone="neutral">
+                    {client.platform} · {client.format}
+                  </Badge>
+                </div>
+                <p className="mt-1 text-sm text-slate-400">{client.hint}</p>
+                <div className="mt-4 grow" />
+                {client.url && client.ready ? (
+                  <>
+                    <a href={client.url} download={client.fileName}>
+                      <Button className="w-full" variant="secondary">
+                        다운로드 (.{client.format.toLowerCase()})
+                      </Button>
+                    </a>
+                    <p className="mt-2 text-center text-xs text-slate-600">{client.fileName}</p>
+                  </>
+                ) : (
+                  <>
+                    <Button className="w-full" variant="secondary" disabled>
+                      IPA · Actions / TestFlight
+                    </Button>
+                    <p className="mt-2 text-center text-xs text-slate-600">
+                      `build-apple.yml` 아티팩트 · Apple 서명 필요
+                    </p>
+                  </>
+                )}
+              </Card>
+            ))}
+          </div>
+        </section>
 
         <Card className="mt-10 p-6">
-          <h2 className="text-base font-semibold text-slate-100">Android APK</h2>
-          <p className="mt-2 text-sm text-slate-400">
-            Streaming 클라이언트용 APK는 JDK 17 + Android SDK가 있는 환경에서
-            <code className="mx-1 rounded bg-base-800 px-1.5 py-0.5 text-xs text-slate-200">
-              npm run tauri:android:build
-            </code>
-            또는 GitHub Actions <code className="rounded bg-base-800 px-1.5 py-0.5 text-xs">build-android</code>
-            워크플로로 생성합니다. 이 PC에는 Java/SDK가 없어 로컬 init은 보류했고, CI·로컬 SDK
-            설치 후 빌드하면 됩니다.
-          </p>
+          <h2 className="text-base font-semibold text-slate-100">빌드 / CI</h2>
+          <ul className="mt-3 space-y-2 text-sm text-slate-400">
+            <li>
+              Windows MSI:{" "}
+              <code className="rounded bg-base-800 px-1.5 py-0.5 text-xs text-slate-200">
+                npm run tauri:build
+              </code>{" "}
+              · Actions <code className="rounded bg-base-800 px-1.5 py-0.5 text-xs">build-desktop</code>
+            </li>
+            <li>
+              macOS DMG:{" "}
+              <code className="rounded bg-base-800 px-1.5 py-0.5 text-xs text-slate-200">
+                npm run tauri:mac:build
+              </code>{" "}
+              · Actions <code className="rounded bg-base-800 px-1.5 py-0.5 text-xs">build-apple</code>
+            </li>
+            <li>
+              Android APK:{" "}
+              <code className="rounded bg-base-800 px-1.5 py-0.5 text-xs text-slate-200">
+                npm run tauri:android:build
+              </code>{" "}
+              · Actions <code className="rounded bg-base-800 px-1.5 py-0.5 text-xs">build-android</code>
+            </li>
+            <li>
+              iOS:{" "}
+              <code className="rounded bg-base-800 px-1.5 py-0.5 text-xs text-slate-200">
+                npm run tauri:ios:init
+              </code>{" "}
+              →{" "}
+              <code className="rounded bg-base-800 px-1.5 py-0.5 text-xs text-slate-200">
+                npm run tauri:ios:build
+              </code>{" "}
+              (macOS + Xcode + Apple Team 필요)
+            </li>
+          </ul>
         </Card>
 
         <Card className="mt-10 p-6">
@@ -131,17 +213,17 @@ export function DownloadPage() {
             </li>
             <li>
               <span className="font-medium text-slate-200">
-                2. 플레이할 기기에서 LumaLink Streaming App(또는 이 웹사이트)을 여세요.
+                2. 플레이할 기기에서 Streaming 앱(Windows / Mac / Android / iOS)을 여세요.
               </span>
               <br />
+              계정으로 로그인하면 등록된 PC가 목록에 나타납니다. 수동 연결은{" "}
               <Link to="/app/pairing" className="text-brand-400 hover:underline">
                 PC 페어링
-              </Link>{" "}
-              화면에서 "IP로 실제 PC 연결" 탭을 선택하세요.
+              </Link>
+              에서 IP + PIN을 입력하세요.
             </li>
             <li>
-              <span className="font-medium text-slate-200">3. IP 주소와 PIN을 입력해 연결하세요.</span>
-              <br />두 기기가 같은 홈 네트워크(Wi-Fi/LAN)에 있어야 합니다.
+              <span className="font-medium text-slate-200">3. 두 기기가 같은 Wi-Fi/LAN에 있어야 합니다.</span>
             </li>
             <li>
               <span className="font-medium text-slate-200">4. 라이브러리에서 게임을 선택하고 스트리밍을 시작하세요.</span>

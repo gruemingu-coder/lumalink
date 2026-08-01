@@ -10,14 +10,13 @@ import { SettingsPage } from "@/pages/SettingsPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { Spinner } from "@/components/ui/Spinner";
 import { useAuth } from "@/state/AuthContext";
-import { isDesktopApp } from "@/utils/platform";
+import { isNativeApp } from "@/utils/platform";
 
 export default function App() {
   // The public website (plain browser build) is intro/download only — the
-  // interactive app only exists inside the LumaLink Streaming desktop app,
-  // behind the account login gate in `DesktopApp` below. Demo/mock PCs and
-  // the old browser-based "try it out" flow have been retired.
-  if (!isDesktopApp()) {
+  // interactive app only exists inside the LumaLink Streaming native app
+  // (Windows / macOS / Android / iOS), behind the account login gate.
+  if (!isNativeApp()) {
     return (
       <Routes>
         <Route path="/" element={<LandingPage />} />

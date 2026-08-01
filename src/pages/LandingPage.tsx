@@ -198,7 +198,7 @@ export function LandingPage() {
             <Link to="/download" className="underline hover:text-slate-300">
               앱 다운로드
             </Link>
-            만 제공하며, 실제 화면 공유는 LumaLink Host/Streaming 데스크톱 앱을 설치하고 계정으로
+            만 제공하며, 실제 화면 공유는 LumaLink Host와 Streaming 앱(Windows·Mac·Android·iOS)을 설치하고 계정으로
             로그인해야 이용할 수 있습니다. "LumaLink" 이름·로고·UI·코드는 전부 이 프로젝트를 위해
             새로 만든 오리지널 자산이며, 타사 제품의 이름·로고·문구·이미지·코드를 그대로 사용하지
             않습니다.
