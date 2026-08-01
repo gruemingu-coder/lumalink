@@ -95,24 +95,30 @@ jobs:
         run: |
           set -euo pipefail
           BUILD_TOOLS="${ANDROID_HOME}/build-tools/${ANDROID_API}.0.0"
-          UNSIGNED=$(find src-tauri/gen/android -name '*.apk' ! -name '*signed*' | head -n1)
+          echo "Looking for APK under src-tauri/gen/android ..."
+          find src-tauri/gen/android -name '*.apk' -ls || true
+          UNSIGNED=$(find src-tauri/gen/android/app/build/outputs/apk -name '*unsigned*.apk' 2>/dev/null | head -n1 || true)
           if [ -z "${UNSIGNED:-}" ]; then
+            UNSIGNED=$(find src-tauri/gen/android/app/build/outputs/apk -path '*release*' -name '*.apk' 2>/dev/null | head -n1 || true)
+          fi
+          if [ -z "${UNSIGNED:-}" ] || [ ! -f "$UNSIGNED" ]; then
             echo "No APK found to sign"
             exit 1
           fi
           echo "Signing $UNSIGNED"
-          ALIGNED="${UNSIGNED%.apk}-aligned.apk"
-          SIGNED="${UNSIGNED%.apk}-signed.apk"
+          ALIGNED="${RUNNER_TEMP}/lumalink-aligned.apk"
+          SIGNED="${RUNNER_TEMP}/lumalink-signed.apk"
           "$BUILD_TOOLS/zipalign" -f -p 4 "$UNSIGNED" "$ALIGNED"
+          KEYSTORE="${RUNNER_TEMP}/lumalink-release.keystore"
           keytool -genkeypair -v \
-            -keystore /tmp/lumalink-release.keystore \
+            -keystore "$KEYSTORE" \
             -storepass lumalink \
             -alias lumalink \
             -keypass lumalink \
             -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=LumaLink, OU=Mobile, O=LumaLink, L=Local, ST=Local, C=KR"
+            -dname "CN=LumaLink"
           "$BUILD_TOOLS/apksigner" sign \
-            --ks /tmp/lumalink-release.keystore \
+            --ks "$KEYSTORE" \
             --ks-pass pass:lumalink \
             --key-pass pass:lumalink \
             --out "$SIGNED" "$ALIGNED"
