@@ -129,11 +129,11 @@ jobs:
           set -euo pipefail
           mkdir -p public/downloads
           apk=$(find artifacts/android -name '*.apk' | head -n1)
-          cp "$apk" public/downloads/LumaLink-Streaming.apk
+          cp "$apk" releases/LumaLink-Streaming.apk
 
       - name: Commit and push APK
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: publish Android streaming app (${{ github.sha }})"
-          file_pattern: "public/downloads/LumaLink-Streaming.apk"
+          file_pattern: "releases/LumaLink-Streaming.apk"
           branch: ${{ github.event.repository.default_branch }}

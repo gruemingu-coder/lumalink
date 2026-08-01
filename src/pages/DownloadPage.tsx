@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/Button";
 const HOST_APP_DOWNLOAD_URL = "/downloads/LumaLink-Host-Setup.msi";
 const STREAMING_WIN_URL = "/downloads/LumaLink-Streaming-Setup.msi";
 const STREAMING_MAC_URL = "/downloads/LumaLink-Streaming-macOS.dmg";
-const STREAMING_ANDROID_URL = "/downloads/LumaLink-Streaming.apk";
+const STREAMING_ANDROID_URL =
+  "https://github.com/gruemingu-coder/lumalink/raw/main/releases/LumaLink-Streaming.apk";
 
 const HOST = {
   name: "LumaLink Host",
