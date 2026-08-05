@@ -1,4 +1,6 @@
 mod discovery;
+mod ffmpeg_setup;
+mod gamepad;
 mod input;
 mod media;
 mod network;
@@ -30,6 +32,8 @@ fn regenerate_pin(state: tauri::State<Arc<SignalingState>>) -> String {
 #[tauri::command]
 fn start_native_stream(
     state: tauri::State<Arc<SignalingState>>,
+    width: Option<u32>,
+    height: Option<u32>,
     fps: u32,
     bitrate_mbps: u32,
     host_audio: Option<bool>,
@@ -37,7 +41,13 @@ fn start_native_stream(
     let Some(media) = &state.media else {
         return Err("네이티브 캡처를 사용할 수 없습니다.".into());
     };
-    media.start_stream(1920, 1080, fps, bitrate_mbps, host_audio.unwrap_or(true));
+    media.start_stream(
+        width.unwrap_or(1920),
+        height.unwrap_or(1080),
+        fps,
+        bitrate_mbps,
+        host_audio.unwrap_or(true),
+    );
     Ok(match media.preferred_backend() {
         media::EncoderBackend::Nvenc => "nvenc".into(),
         media::EncoderBackend::Software => "software".into(),
@@ -50,10 +60,35 @@ fn media_stats(state: tauri::State<Arc<SignalingState>>) -> Option<media::MediaS
 }
 
 #[tauri::command]
-fn stop_native_stream(state: tauri::State<Arc<SignalingState>>) {
+fn stop_native_stream(
+    state: tauri::State<Arc<SignalingState>>,
+    gamepads: tauri::State<Arc<gamepad::GamepadHub>>,
+) {
     if let Some(media) = &state.media {
         media.stop_stream();
     }
+    gamepads.clear();
+}
+
+#[tauri::command]
+fn ffmpeg_status() -> bool {
+    ffmpeg_setup::is_ready()
+}
+
+#[tauri::command]
+async fn setup_ffmpeg(app: tauri::AppHandle) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || ffmpeg_setup::ensure_ffmpeg_installed(app))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+fn inject_gamepad(
+    gamepads: tauri::State<Arc<gamepad::GamepadHub>>,
+    index: u32,
+    gamepad: gamepad::GamepadState,
+) -> Result<(), String> {
+    gamepads.update(index, &gamepad)
 }
 
 #[tauri::command]
@@ -151,6 +186,7 @@ pub fn run() {
 
     let shared_state = Arc::new(SignalingState::new(Some(hub)));
     *shared_state.pin.lock().unwrap() = pin;
+    let gamepad_hub = Arc::new(gamepad::GamepadHub::new());
 
     let relay_state = shared_state.clone();
     let discovery_state = shared_state.clone();
@@ -160,6 +196,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::default().build())
         .manage(shared_state)
+        .manage(gamepad_hub)
         .invoke_handler(tauri::generate_handler![
             get_pin,
             regenerate_pin,
@@ -174,6 +211,9 @@ pub fn run() {
             get_mac_address,
             get_device_info,
             inject_input,
+            inject_gamepad,
+            ffmpeg_status,
+            setup_ffmpeg,
             signaling_port,
             get_client_count
         ])
@@ -187,6 +227,17 @@ pub fn run() {
             tauri::async_runtime::spawn(signaling::run(relay_state));
             tauri::async_runtime::spawn(discovery::run(discovery_state));
 
+            // Prepare ffmpeg in the background so hosting "just works" —
+            // no PATH setup required. No-ops instantly if ffmpeg is
+            // already on PATH or was auto-installed on a previous run.
+            let ffmpeg_app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let _ = tauri::async_runtime::spawn_blocking(move || {
+                    ffmpeg_setup::ensure_ffmpeg_installed(ffmpeg_app_handle)
+                })
+                .await;
+            });
+
             let show_item = MenuItem::with_id(app, "show", "열기", true, None::<&str>)?;
             let regen_item =
                 MenuItem::with_id(app, "regen_pin", "PIN 재발급", true, None::<&str>)?;
@@ -194,7 +245,7 @@ pub fn run() {
             let menu = Menu::with_items(app, &[&show_item, &regen_item, &quit_item])?;
 
             let mut tray = TrayIconBuilder::with_id("main-tray")
-                .tooltip("LumaLink Host")
+                .tooltip("AlaveX Host")
                 .menu(&menu)
                 .show_menu_on_left_click(true)
                 .on_menu_event(move |app, event| match event.id().as_ref() {
@@ -211,7 +262,7 @@ pub fn run() {
                             media.set_pin(new_pin);
                         }
                         if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.emit("lumalink-pin-rotated", ());
+                            let _ = window.emit("alavex-pin-rotated", ());
                             let _ = window.show();
                         }
                     }
@@ -230,7 +281,7 @@ pub fn run() {
                     let n = tip_state.client_count();
                     let pin = tip_state.pin.lock().unwrap().clone();
                     let _ = tip_tray.set_tooltip(Some(format!(
-                        "LumaLink Host · PIN {pin} · clients {n}"
+                        "AlaveX Host · PIN {pin} · clients {n}"
                     )));
                 }
             });
@@ -238,5 +289,5 @@ pub fn run() {
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("error while running the LumaLink host app");
+        .expect("error while running the AlaveX host app");
 }

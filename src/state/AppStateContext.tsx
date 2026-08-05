@@ -62,7 +62,7 @@ function toGame(summary: RemoteGameSummary, deviceId: string, index: number): Ga
 
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
   // No seeded/demo PCs — every device here was actually paired against a
-  // real LumaLink Host App (or synced from the account's cloud device
+  // real AlaveX Host App (or synced from the account's cloud device
   // list once logged in).
   const [devices, setDevices] = useState<PcDevice[]>(() => loadFromStorage(DEVICES_KEY, []));
   const [settings, setSettings] = useState<StreamSettings>(() =>

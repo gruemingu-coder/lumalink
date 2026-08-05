@@ -19,7 +19,7 @@ const ICE_SERVERS: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
 const AUTH_TIMEOUT_MS = 8000;
 
 /**
- * Real streaming transport: connects to a LumaLink Host App over the
+ * Real streaming transport: connects to an AlaveX Host App over the
  * LAN via its WebSocket signaling relay, negotiates a WebRTC
  * connection (client is always the offerer, host is always the
  * answerer because only the host can call `getDisplayMedia()`), and

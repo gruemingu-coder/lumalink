@@ -1,12 +1,12 @@
 [package]
-name = "lumalink"
+name = "alavex-streaming-app"
 version = "0.5.0"
-description = "LumaLink Streaming App - native client (Windows, macOS, Android, iOS) for remote PC game streaming."
-authors = ["LumaLink"]
+description = "AlaveX Streaming App - native client (Windows, macOS, Android, iOS) for remote PC game streaming."
+authors = ["AlaveX"]
 edition = "2021"
 
 [lib]
-name = "lumalink_lib"
+name = "alavex_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

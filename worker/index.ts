@@ -1,13 +1,16 @@
 /**
- * LumaLink accounts + cloud device sync API.
+ * AlaveX accounts + cloud device sync API.
  *
- * Runs as a Cloudflare Worker in front of the static site (see
- * `wrangler.toml`'s `run_worker_first = ["/api/*"]` — every other route is
- * served directly from `dist/` without invoking this script at all).
+ * This is a plain Hono app with no Cloudflare-specific glue, so it can
+ * be reasoned about (and unit tested) independently of how it's hosted.
+ * It's wired up to actually run as a Cloudflare Pages Function in
+ * `functions/api/[[route]].ts`, which handles every request under
+ * `/api/*` — every other route is served directly from `dist/` as a
+ * static asset without invoking this script at all.
  *
- * Both desktop apps (the LumaLink Streaming client and the LumaLink Host
+ * Both desktop apps (the AlaveX Streaming client and the AlaveX Host
  * app) call this API directly over HTTPS; there is no browser-side account
- * UI, since the public website is intro/download only.
+ * UI, since the public website is intro/download only. (AlaveX)
  */
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -24,7 +27,6 @@ import {
 interface Env {
   DB: D1Database;
   JWT_SECRET: string;
-  ASSETS: Fetcher;
 }
 
 interface Variables {

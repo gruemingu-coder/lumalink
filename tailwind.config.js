@@ -1,4 +1,19 @@
 /** @type {import('tailwindcss').Config} */
+
+/**
+ * Reads color from a CSS custom property (set per-theme in `src/index.css`
+ * via `[data-theme="…"]`) so every existing `bg-base-950`, `text-slate-400`,
+ * `text-brand-400`, etc. utility automatically re-colors when the theme
+ * changes — no per-component edits needed. Still supports Tailwind's
+ * opacity modifiers (e.g. `bg-brand-600/15`).
+ */
+function withOpacity(variable) {
+  return ({ opacityValue }) =>
+    opacityValue === undefined
+      ? `rgb(var(${variable}))`
+      : `rgb(var(${variable}) / ${opacityValue})`;
+}
+
 export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   darkMode: "class",
@@ -6,31 +21,51 @@ export default {
     extend: {
       colors: {
         base: {
-          950: "#07080d",
-          900: "#0c0e16",
-          850: "#111421",
-          800: "#161a2c",
-          700: "#1f2438",
-          600: "#2b3150",
-          500: "#3a4268",
+          950: withOpacity("--color-base-950"),
+          900: withOpacity("--color-base-900"),
+          850: withOpacity("--color-base-850"),
+          800: withOpacity("--color-base-800"),
+          700: withOpacity("--color-base-700"),
+          600: withOpacity("--color-base-600"),
+          500: withOpacity("--color-base-500"),
         },
         brand: {
-          50: "#f1f0ff",
-          100: "#e4e1ff",
-          200: "#c9c3ff",
-          300: "#a99eff",
-          400: "#8b7bff",
-          500: "#7457ff",
-          600: "#6238f0",
-          700: "#4f2ccb",
-          800: "#3f24a1",
-          900: "#332080",
+          50: withOpacity("--color-brand-50"),
+          100: withOpacity("--color-brand-100"),
+          200: withOpacity("--color-brand-200"),
+          300: withOpacity("--color-brand-300"),
+          400: withOpacity("--color-brand-400"),
+          500: withOpacity("--color-brand-500"),
+          600: withOpacity("--color-brand-600"),
+          700: withOpacity("--color-brand-700"),
+          800: withOpacity("--color-brand-800"),
+          900: withOpacity("--color-brand-900"),
         },
         accent: {
-          400: "#3fe0c5",
-          500: "#1ecbb0",
-          600: "#14a693",
+          400: withOpacity("--color-accent-400"),
+          500: withOpacity("--color-accent-500"),
+          600: withOpacity("--color-accent-600"),
         },
+        // Overrides Tailwind's built-in `slate` scale (used throughout for
+        // body text) so it also flips per-theme.
+        slate: {
+          50: withOpacity("--color-slate-100"),
+          100: withOpacity("--color-slate-100"),
+          200: withOpacity("--color-slate-200"),
+          300: withOpacity("--color-slate-300"),
+          400: withOpacity("--color-slate-400"),
+          500: withOpacity("--color-slate-500"),
+          600: withOpacity("--color-slate-600"),
+          700: withOpacity("--color-slate-700"),
+          800: withOpacity("--color-slate-700"),
+          900: withOpacity("--color-slate-700"),
+        },
+        /** Strongest foreground color for text sitting directly on the
+         * page/panel background (headings, wordmark) — white on dark
+         * themes, near-black on the light theme. Deliberately separate
+         * from literal `text-white` used on solid brand/danger buttons,
+         * which must stay white in every theme. */
+        heading: withOpacity("--color-heading"),
         warn: {
           400: "#ffb454",
           500: "#ff9c33",
@@ -53,15 +88,16 @@ export default {
         mono: ["JetBrains Mono", "SFMono-Regular", "Menlo", "monospace"],
       },
       boxShadow: {
-        glow: "0 0 0 1px rgba(116,87,255,0.4), 0 0 24px rgba(116,87,255,0.25)",
-        "glow-accent": "0 0 0 1px rgba(31,203,176,0.4), 0 0 24px rgba(31,203,176,0.25)",
+        glow: "0 0 0 1px rgb(var(--color-brand-500) / 0.4), 0 0 24px rgb(var(--color-brand-500) / 0.25)",
+        "glow-accent":
+          "0 0 0 1px rgb(var(--color-accent-500) / 0.4), 0 0 24px rgb(var(--color-accent-500) / 0.25)",
         panel: "0 8px 30px rgba(0,0,0,0.45)",
       },
       backgroundImage: {
         "grid-fade":
-          "radial-gradient(circle at top, rgba(116,87,255,0.18), transparent 55%)",
+          "radial-gradient(circle at top, rgb(var(--color-brand-500) / 0.18), transparent 55%)",
         "hero-glow":
-          "radial-gradient(60% 60% at 50% 0%, rgba(116,87,255,0.35) 0%, rgba(7,8,13,0) 70%)",
+          "radial-gradient(60% 60% at 50% 0%, rgb(var(--color-brand-500) / 0.35) 0%, rgb(var(--color-base-950) / 0) 70%)",
       },
       keyframes: {
         "pulse-ring": {

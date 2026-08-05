@@ -1,8 +1,8 @@
 //! Wake-on-LAN: builds and broadcasts an IEEE 802.3 "magic packet" so a
-//! sleeping/powered-off LumaLink Host PC can be woken up before the
+//! sleeping/powered-off AlaveX Host PC can be woken up before the
 //! user tries to connect. The host's network adapter must have WOL
 //! enabled in its OS/BIOS settings for this to actually wake it — that
-//! configuration is outside LumaLink's control.
+//! configuration is outside AlaveX's control.
 //!
 //! No extra crate needed: a magic packet is just 6 bytes of 0xFF
 //! followed by the target MAC address repeated 16 times, sent as a

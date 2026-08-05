@@ -1,11 +1,11 @@
 name: Build Desktop Apps (MSI)
 
 # This workflow is the real compiler check for the Rust/Tauri code in
-# `src-tauri/` (LumaLink Streaming App) and `host-app/src-tauri/`
-# (LumaLink Host App) — the code was authored without a working local
+# `src-tauri/` (AlaveX Streaming App) and `host-app/src-tauri/`
+# (AlaveX Host App) — the code was authored without a working local
 # build environment, so this CI run is what actually validates it.
 #
-# Distribution model: MSIs are served directly from the LumaLink
+# Distribution model: MSIs are served directly from the AlaveX
 # website itself (same-origin `/downloads/...`), not from GitHub
 # Releases. On a tag push, this workflow builds both MSIs, then the
 # `publish-to-site` job commits them into `public/downloads/` on the
@@ -34,10 +34,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - app_name: lumalink-streaming-app
+          - app_name: alavex-streaming-app
             working_dir: .
             src_tauri_dir: src-tauri
-          - app_name: lumalink-host-app
+          - app_name: alavex-host-app
             working_dir: host-app
             src_tauri_dir: host-app/src-tauri
 
@@ -72,7 +72,7 @@ jobs:
             Add-Type -AssemblyName System.Drawing
             $bmp = New-Object System.Drawing.Bitmap 1024, 1024
             $g = [System.Drawing.Graphics]::FromImage($bmp)
-            $g.Clear([System.Drawing.Color]::FromArgb(255, 100, 120, 255))
+            $g.Clear([System.Drawing.Color]::FromArgb(255, 116, 87, 255))
             $g.Dispose()
             $tmp = "placeholder-icon.png"
             $bmp.Save($tmp, [System.Drawing.Imaging.ImageFormat]::Png)
@@ -114,8 +114,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p public/downloads
-          cp artifacts/lumalink-host-app/*.msi public/downloads/LumaLink-Host-Setup.msi
-          cp artifacts/lumalink-streaming-app/*.msi public/downloads/LumaLink-Streaming-Setup.msi
+          cp artifacts/alavex-host-app/*.msi public/downloads/AlaveX-Host-Setup.msi
+          cp artifacts/alavex-streaming-app/*.msi public/downloads/AlaveX-Streaming-Setup.msi
 
       - name: Commit and push installers
         uses: stefanzweifel/git-auto-commit-action@v5

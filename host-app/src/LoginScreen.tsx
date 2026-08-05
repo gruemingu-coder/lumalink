@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useAuth } from "./AuthContext";
 
-/** Shown whenever the LumaLink Host app launches without a valid saved session. */
+/** Shown whenever the AlaveX Host app launches without a valid saved session. */
 export function LoginScreen() {
   const { login, signup, error, isSubmitting, clearError } = useAuth();
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -64,7 +64,7 @@ export function LoginScreen() {
         </div>
 
         <p className="mb-4 text-xs leading-relaxed text-slate-500">
-          로그인하면 이 PC가 계정에 등록되어, 같은 계정으로 로그인한 LumaLink Streaming 앱에서
+          로그인하면 이 PC가 계정에 등록되어, 같은 계정으로 로그인한 AlaveX Streaming 앱에서
           자동으로 이 PC를 찾을 수 있어요.
         </p>
 
@@ -118,7 +118,7 @@ export function LoginScreen() {
       </div>
 
       <p className="mt-5 max-w-xs text-center text-[10px] leading-relaxed text-slate-600">
-        LumaLink는 독립적인 프로젝트이며 특정 상용 소프트웨어와 무관합니다.
+        AlaveX는 독립적인 프로젝트이며 특정 상용 소프트웨어와 무관합니다.
       </p>
     </div>
   );

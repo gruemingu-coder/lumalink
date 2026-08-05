@@ -1,0 +1,153 @@
+name: Build Apple Clients (macOS + iOS)
+
+# Streaming client only. Host stays Windows (DXGI).
+# Requires macos runners. iOS archive is unsigned unless APPLE_* secrets exist.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Ensure icons
+        shell: bash
+        run: |
+          if [ ! -f src-tauri/icons/icon.icns ]; then
+            python3 - <<'PY'
+          from struct import pack
+          import zlib, pathlib
+          def chunk(t, d):
+              return pack('>I', len(d)) + t + d + pack('>I', zlib.crc32(t + d) & 0xffffffff)
+          raw = b''.join(b'\x00' + bytes([116,87,255])*1024 for _ in range(1024))
+          png = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', pack('>IIBBBBB', 1024, 1024, 8, 2, 0, 0, 0))
+          png += chunk(b'IDAT', zlib.compress(raw, 9)) + chunk(b'IEND', b'')
+          pathlib.Path('placeholder.png').write_bytes(png)
+          PY
+            npx tauri icon placeholder.png
+          fi
+
+      - name: Build macOS DMG / app
+        run: npm run tauri:mac:build
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: alavex-macos
+          path: |
+            src-tauri/target/release/bundle/dmg/*.dmg
+            src-tauri/target/release/bundle/macos/*.app
+          if-no-files-found: warn
+
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,x86_64-apple-ios,aarch64-apple-ios-sim
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Ensure icons
+        shell: bash
+        run: |
+          if [ ! -f src-tauri/icons/icon.icns ]; then
+            python3 - <<'PY'
+          from struct import pack
+          import zlib, pathlib
+          def chunk(t, d):
+              return pack('>I', len(d)) + t + d + pack('>I', zlib.crc32(t + d) & 0xffffffff)
+          raw = b''.join(b'\x00' + bytes([116,87,255])*1024 for _ in range(1024))
+          png = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', pack('>IIBBBBB', 1024, 1024, 8, 2, 0, 0, 0))
+          png += chunk(b'IDAT', zlib.compress(raw, 9)) + chunk(b'IEND', b'')
+          pathlib.Path('placeholder.png').write_bytes(png)
+          PY
+            npx tauri icon placeholder.png
+          fi
+
+      - name: Init iOS project if missing
+        run: |
+          if [ ! -d src-tauri/gen/apple ]; then
+            npx tauri ios init --ci
+          fi
+
+      - name: Build iOS archive
+        run: npx tauri ios build
+        continue-on-error: true
+        env:
+          APPLE_DEVELOPMENT_TEAM: ${{ secrets.APPLE_DEVELOPMENT_TEAM }}
+
+      - name: Upload iOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: alavex-ios
+          path: |
+            src-tauri/gen/apple/**/*.ipa
+            src-tauri/gen/apple/**/*.app
+            src-tauri/target/**/*.ipa
+          if-no-files-found: warn
+
+  publish-macos-to-site:
+    name: Publish macOS DMG to public/downloads
+    needs: macos
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: alavex-macos
+          path: artifacts/macos
+
+      - name: Copy DMG
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p public/downloads
+          dmg=$(find artifacts/macos -name '*.dmg' | head -n1 || true)
+          if [ -n "${dmg:-}" ]; then
+            cp "$dmg" public/downloads/AlaveX-Streaming-macOS.dmg
+          else
+            echo "No DMG produced; skip publish"
+            exit 0
+          fi
+
+      - name: Commit and push macOS installer
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: publish macOS streaming app (${{ github.ref_name }})"
+          file_pattern: "public/downloads/AlaveX-Streaming-macOS.dmg"
+          branch: ${{ github.event.repository.default_branch }}

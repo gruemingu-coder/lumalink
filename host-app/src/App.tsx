@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import {
   DESKTOP_MODE_GAME_ID,
   SIGNALING_PORT,
@@ -22,13 +23,28 @@ interface InstalledGame {
 
 type ConnState = "starting" | "listening" | "active" | "relay-error";
 
-const ICE_SERVERS: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
 const HEARTBEAT_INTERVAL_MS = 30_000;
 
-/** One session per client — native DXGI+NVENC, or legacy WebRTC fallback. */
+/** One native UDP session per client (DXGI + NVENC/libx264). */
 interface ClientSession {
-  kind: "native" | "webrtc";
-  pc?: RTCPeerConnection;
+  kind: "native";
+}
+
+function resolutionToDimensions(resolution: RemoteQualitySettings["resolution"] | undefined): {
+  width: number;
+  height: number;
+} {
+  switch (resolution) {
+    case "720p":
+      return { width: 1280, height: 720 };
+    case "1440p":
+      return { width: 2560, height: 1440 };
+    case "4k":
+      return { width: 3840, height: 2160 };
+    case "1080p":
+    default:
+      return { width: 1920, height: 1080 };
+  }
 }
 
 export function App() {
@@ -38,7 +54,7 @@ export function App() {
   const [gamesError, setGamesError] = useState<string | null>(null);
   const [connState, setConnState] = useState<ConnState>("starting");
   const [clientCount, setClientCount] = useState(0);
-  const [shareError, setShareError] = useState<string | null>(null);
+  const [streamError, setStreamError] = useState<string | null>(null);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [mediaStats, setMediaStats] = useState<{
     streaming: boolean;
@@ -48,31 +64,25 @@ export function App() {
     backend: string;
     hostAudio: boolean;
   } | null>(null);
+  const [ffmpegSetup, setFfmpegSetup] = useState<
+    | { status: "downloading"; percent: number }
+    | { status: "extracting" }
+    | { status: "ready"; path: string }
+    | { status: "error"; message: string }
+    | null
+  >(null);
 
   const wsRef = useRef<WebSocket | null>(null);
-  // The screen is captured once and its tracks are shared across every
-  // connected client's RTCPeerConnection — no need to re-capture per
-  // client, and it means N clients watching the same PC don't cost N×
-  // the capture overhead.
-  const streamRef = useRef<MediaStream | null>(null);
   const sessionsRef = useRef<Map<string, ClientSession>>(new Map());
-  // The WebSocket effect below only runs once on mount, so it can't see
-  // later `games` state updates via closure — read the latest list
-  // through this ref instead.
   const gamesRef = useRef<InstalledGame[]>([]);
   useEffect(() => {
     gamesRef.current = games;
   }, [games]);
-  // Same pattern as `gamesRef`: the heartbeat effect below only needs the
-  // *current* PIN at send-time, not to re-run whenever it changes.
   const pinRef = useRef<string | null>(null);
   useEffect(() => {
     pinRef.current = pin;
   }, [pin]);
 
-  // Registers this PC to the logged-in account so a LumaLink Streaming
-  // app logged into the same account can find it without the user typing
-  // in an IP/PIN — see `worker/index.ts`'s `POST /api/devices`.
   useEffect(() => {
     if (!token) return;
     let cancelled = false;
@@ -95,9 +105,7 @@ export function App() {
           pairingPin: pinRef.current,
         });
       } catch {
-        // Best-effort — offline or the account server is unreachable;
-        // the next interval tick will retry. Local pairing (PIN over
-        // LAN) still works regardless.
+        // Best-effort heartbeat.
       }
     };
 
@@ -131,12 +139,9 @@ export function App() {
     (clientId: string) => {
       const session = sessionsRef.current.get(clientId);
       if (!session) return;
-      session.pc?.close();
       sessionsRef.current.delete(clientId);
 
       if (sessionsRef.current.size === 0) {
-        streamRef.current?.getTracks().forEach((t) => t.stop());
-        streamRef.current = null;
         void invoke("stop_native_stream").catch(() => undefined);
       }
       refreshOverallState();
@@ -144,47 +149,13 @@ export function App() {
     [refreshOverallState]
   );
 
-  const stopAllSharing = useCallback(() => {
-    sessionsRef.current.forEach((session) => session.pc?.close());
+  const stopAllStreaming = useCallback(() => {
     sessionsRef.current.clear();
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
     void invoke("stop_native_stream").catch(() => undefined);
     refreshOverallState();
   }, [refreshOverallState]);
 
-  const ensureCaptureStream = useCallback(
-    async (quality: RemoteQualitySettings | undefined): Promise<MediaStream> => {
-      if (streamRef.current && streamRef.current.getVideoTracks()[0]?.readyState === "live") {
-        return streamRef.current;
-      }
-      const { width, height } = resolutionToDimensions(quality?.resolution);
-      const targetFps = quality?.fps ?? 60;
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { width: { ideal: width }, height: { ideal: height }, frameRate: { ideal: targetFps } },
-        audio: quality?.hostAudio ?? true,
-      });
-      stream.getVideoTracks().forEach((track) => {
-        // Hints the encoder to prioritize smooth motion over per-frame
-        // sharpness for screen/game content — a real, browser-native
-        // knob (as opposed to re-implementing capture/encode in Rust).
-        track.contentHint = "motion";
-      });
-      streamRef.current = stream;
-      stream.getVideoTracks()[0]?.addEventListener("ended", () => {
-        // The user stopped sharing from the OS picker/browser UI —
-        // tear down every session, since there's nothing left to send.
-        stopAllSharing();
-        if (wsRef.current?.readyState === WebSocket.OPEN) {
-          wsRef.current.send(encodeSignalingMessage({ type: "bye" }));
-        }
-      });
-      return stream;
-    },
-    [stopAllSharing]
-  );
-
-  const startNativeSharing = useCallback(
+  const startNativeStreaming = useCallback(
     async (
       ws: WebSocket,
       clientId: string,
@@ -192,7 +163,7 @@ export function App() {
       gameId: string | null | undefined,
       quality: RemoteQualitySettings | undefined
     ) => {
-      setShareError(null);
+      setStreamError(null);
       try {
         if (gameId && gameId !== DESKTOP_MODE_GAME_ID) {
           void invoke("launch_game", { gameId }).catch(() => undefined);
@@ -203,9 +174,12 @@ export function App() {
           void invoke("launch_custom_program", { path: quality.customProgramPath }).catch(() => undefined);
         }
 
+        const { width, height } = resolutionToDimensions(quality?.resolution);
         const backend = await invoke<string>("start_native_stream", {
-          fps: quality?.fps ?? 60,
-          bitrateMbps: quality?.bitrateMbps ?? 25,
+          width,
+          height,
+          fps: quality?.fps ?? 120,
+          bitrateMbps: quality?.bitrateMbps ?? 35,
           hostAudio: quality?.hostAudio ?? true,
         });
         sessionsRef.current.set(clientId, { kind: "native" });
@@ -222,10 +196,10 @@ export function App() {
           ws.send(encodeSignalingMessage({ type: "games", games: gamesForClient, clientId }));
         }
       } catch (err) {
-        setShareError(
+        setStreamError(
           err instanceof Error
             ? `네이티브 캡처 실패: ${err.message}`
-            : "네이티브 캡처를 시작할 수 없습니다. ffmpeg(PATH)를 확인해주세요."
+            : "네이티브 캡처를 시작할 수 없습니다. ffmpeg 준비가 끝났는지 잠시 후 다시 시도해주세요."
         );
         stopClientSession(clientId);
       }
@@ -233,102 +207,40 @@ export function App() {
     [refreshOverallState, stopClientSession]
   );
 
-  const startSharing = useCallback(
-    async (
-      offerSdp: string,
-      ws: WebSocket,
-      clientId: string,
-      gamesForClient: RemoteGameSummary[],
-      gameId: string | null | undefined,
-      quality: RemoteQualitySettings | undefined
-    ) => {
-      setShareError(null);
-      try {
-        if (gameId && gameId !== DESKTOP_MODE_GAME_ID) {
-          void invoke("launch_game", { gameId }).catch(() => undefined);
-        }
-        if (quality?.streamStartAction === "bigPicture") {
-          void invoke("launch_big_picture").catch(() => undefined);
-        } else if (quality?.streamStartAction === "custom" && quality.customProgramPath) {
-          void invoke("launch_custom_program", { path: quality.customProgramPath }).catch(() => undefined);
-        }
-
-        const stream = await ensureCaptureStream(quality);
-        const targetFps = quality?.fps ?? 60;
-
-        const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-        sessionsRef.current.set(clientId, { kind: "webrtc", pc });
-        refreshOverallState();
-        stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-        void applyEncodingPreferences(pc, quality, targetFps);
-
-        pc.onicecandidate = (event) => {
-          if (event.candidate && ws.readyState === WebSocket.OPEN) {
-            ws.send(
-              encodeSignalingMessage({
-                type: "ice",
-                candidate: {
-                  candidate: event.candidate.candidate,
-                  sdpMid: event.candidate.sdpMid,
-                  sdpMLineIndex: event.candidate.sdpMLineIndex,
-                },
-                clientId,
-              })
-            );
-          }
-        };
-
-        pc.ondatachannel = (event) => {
-          event.channel.onmessage = (msg) => {
-            try {
-              const data = JSON.parse(String(msg.data));
-              if (data?.kind === "input" && data.event) {
-                void invoke("inject_input", { event: data.event }).catch(() => undefined);
-              }
-            } catch {
-              // Ignore malformed data channel messages.
-            }
-          };
-        };
-
-        pc.onconnectionstatechange = () => {
-          if (pc.connectionState === "failed" || pc.connectionState === "closed") {
-            stopClientSession(clientId);
-          }
-        };
-
-        await pc.setRemoteDescription({ type: "offer", sdp: offerSdp });
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        if (ws.readyState === WebSocket.OPEN && answer.sdp) {
-          ws.send(encodeSignalingMessage({ type: "answer", sdp: answer.sdp, clientId }));
-          ws.send(encodeSignalingMessage({ type: "games", games: gamesForClient, clientId }));
-        }
-      } catch (err) {
-        setShareError(
-          err instanceof Error
-            ? `화면 공유를 시작할 수 없습니다: ${err.message}`
-            : "화면 공유를 시작할 수 없습니다."
-        );
-        stopClientSession(clientId);
-      }
-    },
-    [ensureCaptureStream, refreshOverallState, stopClientSession]
-  );
-
   useEffect(() => {
     invoke<string>("get_pin").then(setPin).catch(() => setPin(null));
     loadGames();
     let unlisten: (() => void) | undefined;
-    void import("@tauri-apps/api/event").then(({ listen }) =>
-      listen("lumalink-pin-rotated", () => {
-        void invoke<string>("get_pin").then(setPin).catch(() => undefined);
-      }).then((fn) => {
-        unlisten = fn;
-      })
-    );
+    void listen("alavex-pin-rotated", () => {
+      void invoke<string>("get_pin").then(setPin).catch(() => undefined);
+    }).then((fn) => {
+      unlisten = fn;
+    });
     return () => unlisten?.();
   }, [loadGames]);
+
+  // ffmpeg is prepared automatically in the background (see
+  // `ffmpeg_setup.rs`) — no PATH setup required. This just surfaces
+  // progress/errors so a first-run download doesn't look like a freeze.
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void listen<
+      | { status: "downloading"; percent: number }
+      | { status: "extracting" }
+      | { status: "ready"; path: string }
+      | { status: "error"; message: string }
+    >("alavex-ffmpeg-setup", (event) => {
+      setFfmpegSetup(event.payload);
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
+  }, []);
+
+  const retryFfmpegSetup = useCallback(() => {
+    setFfmpegSetup({ status: "downloading", percent: 0 });
+    void invoke("setup_ffmpeg").catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     const tick = () => {
@@ -363,10 +275,6 @@ export function App() {
 
       switch (msg.type) {
         case "client-connected": {
-          // Pairing and the library "새로고침" button only do a quick
-          // auth handshake (no WebRTC offer follows), so send the game
-          // list right away — don't wait for `startSharing`, which only
-          // runs once an actual streaming session's SDP offer arrives.
           const clientId = msg.clientId;
           if (!clientId) break;
           const gamesToSend = gamesRef.current.map((g) => ({ id: g.id, title: g.title }));
@@ -382,18 +290,7 @@ export function App() {
             id: g.id,
             title: g.title,
           }));
-          void startNativeSharing(ws, clientId, gamesForClient, msg.gameId, msg.quality);
-          break;
-        }
-        case "offer": {
-          // Legacy WebRTC path (getDisplayMedia). Native clients send `start-stream`.
-          const clientId = msg.clientId;
-          if (!clientId) break;
-          const gamesForClient: RemoteGameSummary[] = gamesRef.current.map((g) => ({
-            id: g.id,
-            title: g.title,
-          }));
-          void startSharing(msg.sdp, ws, clientId, gamesForClient, msg.gameId, msg.quality);
+          void startNativeStreaming(ws, clientId, gamesForClient, msg.gameId, msg.quality);
           break;
         }
         case "input": {
@@ -402,26 +299,17 @@ export function App() {
           }
           break;
         }
-        case "ice": {
-          const clientId = msg.clientId;
-          if (!clientId) break;
-          void sessionsRef.current
-            .get(clientId)
-            ?.pc?.addIceCandidate({
-              candidate: msg.candidate.candidate,
-              sdpMid: msg.candidate.sdpMid ?? undefined,
-              sdpMLineIndex: msg.candidate.sdpMLineIndex ?? undefined,
-            })
-            .catch(() => undefined);
+        case "gamepad": {
+          void invoke("inject_gamepad", { index: msg.index, gamepad: msg.state }).catch(
+            () => undefined
+          );
           break;
         }
         case "peer-left": {
           if (msg.clientId) {
             stopClientSession(msg.clientId);
           } else {
-            // No clientId means the whole relay reset (shouldn't happen
-            // on this leg in practice) — be safe and clear everything.
-            stopAllSharing();
+            stopAllStreaming();
           }
           break;
         }
@@ -459,10 +347,10 @@ export function App() {
       <header className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600 text-sm font-bold text-white">
-            LL
+            AX
           </div>
           <div>
-            <h1 className="text-lg font-bold text-white">LumaLink Host</h1>
+            <h1 className="text-lg font-bold text-white">AlaveX Host</h1>
             <p className="text-xs text-slate-500">이 PC의 게임을 다른 기기에서 스트리밍합니다</p>
           </div>
         </div>
@@ -482,13 +370,39 @@ export function App() {
         )}
       </header>
 
+      {ffmpegSetup && ffmpegSetup.status !== "ready" && (
+        <section className="rounded-2xl border border-brand-500/30 bg-brand-500/5 p-4 text-sm">
+          {ffmpegSetup.status === "downloading" && (
+            <p className="text-slate-300">
+              ffmpeg 준비 중... ({ffmpegSetup.percent}%) — 최초 1회만 필요하며, 이후 실행부터는
+              바로 스트리밍할 수 있습니다.
+            </p>
+          )}
+          {ffmpegSetup.status === "extracting" && (
+            <p className="text-slate-300">ffmpeg 압축을 푸는 중...</p>
+          )}
+          {ffmpegSetup.status === "error" && (
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-danger-400">ffmpeg 준비 실패: {ffmpegSetup.message}</p>
+              <button
+                type="button"
+                onClick={retryFfmpegSetup}
+                className="shrink-0 rounded-lg border border-base-600 px-3 py-1.5 text-xs text-slate-300 transition-colors hover:border-brand-500 hover:text-white"
+              >
+                다시 시도
+              </button>
+            </div>
+          )}
+        </section>
+      )}
+
       <section className="rounded-2xl border border-base-700 bg-base-900 p-6 text-center">
         <p className="text-xs uppercase tracking-wide text-slate-500">페어링 PIN</p>
         <p className="mt-2 font-mono text-5xl font-bold tracking-[0.3em] text-brand-300">
           {pin ?? "----"}
         </p>
         <p className="mt-3 text-xs text-slate-500">
-          LumaLink 앱의 페어링 화면에서 이 PC의 IP와 PIN을 입력하세요. PIN은 URL이 아닌 연결
+          AlaveX 앱의 페어링 화면에서 이 PC의 IP와 PIN을 입력하세요. PIN은 URL이 아닌 연결
           메시지 본문으로만 전달됩니다. 네이티브 스트리밍(UDP)은 동시에 시청자 1명만 허용합니다.
         </p>
         <button
@@ -511,7 +425,7 @@ export function App() {
           )}
         </div>
         <p className="mt-2 text-sm font-medium text-slate-100">{connStateLabel(connState, clientCount)}</p>
-        {shareError && <p className="mt-2 text-sm text-danger-400">{shareError}</p>}
+        {streamError && <p className="mt-2 text-sm text-danger-400">{streamError}</p>}
         {mediaStats && (
           <dl className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-400 sm:grid-cols-3">
             <div>
@@ -548,10 +462,10 @@ export function App() {
           {clientCount > 0 && (
             <button
               type="button"
-              onClick={stopAllSharing}
+              onClick={stopAllStreaming}
               className="rounded-lg bg-danger-500/15 px-4 py-2 text-sm font-medium text-danger-400 hover:bg-danger-500/25"
             >
-              모든 화면 공유 중지
+              스트리밍 중지
             </button>
           )}
           <button
@@ -605,73 +519,13 @@ export function App() {
           LLU2(mediaToken + XOR).
         </p>
         <p className="mt-2 text-[11px] text-slate-700">
-          LumaLink는 독립적인 프로젝트이며 특정 상용 소프트웨어와 무관합니다. 모든 브랜드 자산은
+          AlaveX는 독립적인 프로젝트이며 특정 상용 소프트웨어와 무관합니다. 모든 브랜드 자산은
           오리지널 디자인입니다.
         </p>
         <p className="mt-1 font-mono text-slate-700">v{APP_VERSION}</p>
       </footer>
     </div>
   );
-}
-
-function resolutionToDimensions(resolution: RemoteQualitySettings["resolution"] | undefined): {
-  width: number;
-  height: number;
-} {
-  switch (resolution) {
-    case "720p":
-      return { width: 1280, height: 720 };
-    case "1440p":
-      return { width: 2560, height: 1440 };
-    case "4k":
-      return { width: 3840, height: 2160 };
-    case "1080p":
-    default:
-      return { width: 1920, height: 1080 };
-  }
-}
-
-/**
- * Applies the client's requested frame rate/bitrate/quality trade-off
- * to the outgoing video track via `RTCRtpSender.setParameters()`. This
- * is the real, browser-native way to raise the FPS ceiling and tune
- * the encoder — WebView2/Chromium already does hardware-accelerated
- * H.264 encoding under the hood when the GPU supports it, so this
- * config (plus `preferH264`/`contentHint` on the client+here) gets
- * meaningfully closer to Moonlight-style low-latency/high-FPS
- * streaming without reimplementing capture+encode natively in Rust.
- */
-async function applyEncodingPreferences(
-  pc: RTCPeerConnection,
-  quality: RemoteQualitySettings | undefined,
-  targetFps: number
-): Promise<void> {
-  const sender = pc.getSenders().find((s) => s.track?.kind === "video");
-  if (!sender) return;
-  try {
-    const params = sender.getParameters();
-    if (!params.encodings || params.encodings.length === 0) {
-      params.encodings = [{}];
-    }
-    params.encodings[0].maxFramerate = targetFps;
-    if (quality?.bitrateMbps) {
-      params.encodings[0].maxBitrate = Math.round(quality.bitrateMbps * 1_000_000);
-    }
-    const paramsWithDegradation = params as RTCRtpSendParameters & {
-      degradationPreference?: "maintain-framerate" | "maintain-resolution" | "balanced";
-    };
-    paramsWithDegradation.degradationPreference =
-      quality?.latencyMode === "latency"
-        ? "maintain-framerate"
-        : quality?.latencyMode === "quality"
-          ? "maintain-resolution"
-          : "balanced";
-    await sender.setParameters(params);
-  } catch {
-    // Best-effort — some browsers reject parameter changes before the
-    // connection reaches certain states. Streaming still works with
-    // browser-default encoding settings if this fails.
-  }
 }
 
 function connStateLabel(state: ConnState, clientCount: number): string {

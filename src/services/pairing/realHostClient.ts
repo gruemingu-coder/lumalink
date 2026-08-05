@@ -4,6 +4,7 @@ import {
   encodeSignalingMessage,
   type RemoteGameSummary,
 } from "@/services/streaming/signalingProtocol";
+import { isBlockedByMixedContent, MIXED_CONTENT_ERROR_MESSAGE } from "@/utils/platform";
 
 export interface RealHostHandshakeResult {
   hostName: string;
@@ -30,6 +31,9 @@ export function connectToRealHost(
   signalPort: number = SIGNALING_PORT,
   timeoutMs = 6000
 ): Promise<RealHostHandshakeResult> {
+  if (isBlockedByMixedContent()) {
+    return Promise.reject(new RealHostAuthError(MIXED_CONTENT_ERROR_MESSAGE));
+  }
   return new Promise((resolve, reject) => {
     let settled = false;
     let games: RemoteGameSummary[] = [];

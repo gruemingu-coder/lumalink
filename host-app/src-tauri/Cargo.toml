@@ -1,12 +1,12 @@
 [package]
-name = "lumalink-host"
+name = "alavex-host-app"
 version = "0.5.0"
-description = "LumaLink Host App - DXGI + NVENC native capture for LumaLink streaming clients."
-authors = ["LumaLink"]
+description = "AlaveX Host App - DXGI + NVENC native capture for AlaveX streaming clients."
+authors = ["AlaveX"]
 edition = "2021"
 
 [lib]
-name = "lumalink_host_lib"
+name = "alavex_host_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -23,10 +23,14 @@ serde_json = "1"
 rand = "0.8"
 enigo = "0.2"
 mac_address = "1"
+dirs = "5"
+ureq = "2"
+zip = "2"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52"
 scrap = "0.5"
+vigem-client = "0.1"
 
 [profile.release]
 panic = "abort"

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAppState } from "@/state/AppStateContext";
 import { connectToRealHost, RealHostAuthError } from "@/services/pairing/realHostClient";
 import {
@@ -10,6 +10,7 @@ import {
 import { SIGNALING_PORT } from "@/services/streaming/signalingProtocol";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { isBlockedByMixedContent } from "@/utils/platform";
 
 export function PairingPage() {
   const { addDevice, setRealGames } = useAppState();
@@ -25,6 +26,7 @@ export function PairingPage() {
   const [lanSupported, setLanSupported] = useState(false);
   const [lanHosts, setLanHosts] = useState<DiscoveredHost[] | null>(null);
   const [isDiscoveringLan, setIsDiscoveringLan] = useState(false);
+  const mixedContentBlocked = isBlockedByMixedContent();
 
   useEffect(() => {
     void isLanDiscoverySupported().then(setLanSupported);
@@ -52,7 +54,7 @@ export function PairingPage() {
     setRealError(null);
     try {
       const address = realAddress.trim();
-      const result = await connectToRealHost(address, realPin, "LumaLink", realSignalPort);
+      const result = await connectToRealHost(address, realPin, "AlaveX", realSignalPort);
       const id = `real-${address}`;
       addDevice({
         id,
@@ -92,9 +94,9 @@ export function PairingPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:py-10">
-      <h1 className="text-2xl font-bold text-white">PC 페어링</h1>
+      <h1 className="text-2xl font-bold text-heading">PC 페어링</h1>
       <p className="mt-1 text-sm text-slate-400">
-        LumaLink Host 앱이 실행 중인 PC의 IP 주소와 PIN으로 연결하세요. PIN은 연결 메시지
+        AlaveX Host 앱이 실행 중인 PC의 IP 주소와 PIN으로 연결하세요. PIN은 연결 메시지
         본문으로만 전송되며 URL에 포함되지 않습니다.
       </p>
 
@@ -102,12 +104,30 @@ export function PairingPage() {
         {!realPairedName ? (
           <div className="mx-auto max-w-sm">
             <h2 className="text-center text-sm font-medium text-slate-300">
-              LumaLink Host 앱이 실행 중인 PC에 연결
+              AlaveX Host 앱이 실행 중인 PC에 연결
             </h2>
             <p className="mt-1 text-center text-xs text-slate-500">
-              호스트 PC에서 LumaLink Host 앱을 실행하면 IP 주소와 PIN이 표시됩니다. 두 기기가 같은
+              호스트 PC에서 AlaveX Host 앱을 실행하면 IP 주소와 PIN이 표시됩니다. 두 기기가 같은
               LAN/Wi-Fi에 연결되어 있어야 합니다.
             </p>
+
+            {mixedContentBlocked && (
+              <div className="mt-5 rounded-xl border border-warn-500/30 bg-warn-500/5 p-4 text-left">
+                <p className="text-xs font-semibold text-warn-400">
+                  브라우저에서는 PC 연결이 지원되지 않습니다
+                </p>
+                <p className="mt-1.5 text-xs leading-relaxed text-slate-400">
+                  이 웹사이트는 HTTPS로 배포되어 있어, 브라우저 보안 정책상 암호화되지 않은 LAN
+                  연결(ws://)을 열 수 없습니다. AlaveX Streaming 네이티브 앱을 설치하면 같은
+                  화면에서 바로 연결할 수 있어요.
+                </p>
+                <Link to="/download" className="mt-3 inline-block">
+                  <Button size="sm" variant="secondary">
+                    네이티브 앱 다운로드
+                  </Button>
+                </Link>
+              </div>
+            )}
 
             {lanSupported ? (
               <div className="mt-5 rounded-xl border border-base-700 bg-base-800/40 p-4">
@@ -119,7 +139,7 @@ export function PairingPage() {
                 </div>
                 {lanHosts && lanHosts.length === 0 && !isDiscoveringLan && (
                   <p className="mt-2 text-xs text-slate-500">
-                    검색된 호스트가 없습니다. 호스트 PC에서 LumaLink Host 앱이 실행 중인지 확인하세요.
+                    검색된 호스트가 없습니다. 호스트 PC에서 AlaveX Host 앱이 실행 중인지 확인하세요.
                   </p>
                 )}
                 {lanHosts && lanHosts.length > 0 && (
@@ -145,7 +165,7 @@ export function PairingPage() {
               </div>
             ) : (
               <p className="mt-5 rounded-xl border border-base-700 bg-base-800/40 p-3 text-center text-[11px] text-slate-500">
-                자동 검색은 LumaLink Streaming 앱에서만 지원됩니다. 웹에서는 IP 주소를
+                자동 검색은 AlaveX Streaming 앱에서만 지원됩니다. 웹에서는 IP 주소를
                 직접 입력해주세요.
               </p>
             )}
@@ -187,7 +207,7 @@ export function PairingPage() {
 
               <Button
                 className="w-full"
-                disabled={!realAddress.trim() || realPin.length !== 4}
+                disabled={!realAddress.trim() || realPin.length !== 4 || mixedContentBlocked}
                 isLoading={isConnectingReal}
                 onClick={handleConnectReal}
               >

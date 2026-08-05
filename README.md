@@ -1,8 +1,8 @@
-# LumaLink
+# AlaveX
 
 **내 PC 게임을 다른 기기에서 낮은 지연으로 플레이.**
 
-LumaLink는 원격 PC 게임 스트리밍의 **독립적인 프로젝트**입니다. 어떤 상용/오픈소스
+AlaveX는 원격 PC 게임 스트리밍의 **독립적인 프로젝트**입니다. 어떤 상용/오픈소스
 소프트웨어(예: Moonlight)의 이름, 로고, 문구, 이미지, 코드를 그대로 사용하지 않으며, 모든
 UI·브랜딩·코드는 이 프로젝트를 위해 새로 작성되었습니다.
 
@@ -14,8 +14,9 @@ UI·브랜딩·코드는 이 프로젝트를 위해 새로 작성되었습니다
 | 스트리밍 앱 | `src/` + `src-tauri/` | 같은 React UI를 Tauri로 패키징. **Windows / macOS / Android / iOS**. 계정 로그인, 클라우드 PC 목록, **LLU2 H.264(WebCodecs)**, WOL/LAN 검색. |
 | 호스트 앱 | `host-app/` | Tauri + Rust. **Windows 게이밍 PC 전용**(DXGI). 계정 로그인, PIN, Steam, **NVENC/ffmpeg**, 입력 주입, 트레이, 클라우드 하트비트. MSI 배포. |
 
-계정 API는 Cloudflare Worker + D1 (`worker/`, `migrations/`)로 동작합니다. 정적 사이트와
-같은 Worker가 `/api/*`를 처리합니다.
+계정 API는 Cloudflare Pages Functions + D1 (`worker/`, `functions/`, `migrations/`)로
+동작합니다. `functions/api/[[route]].ts`가 `/api/*`를 처리하고, 그 외 경로는 정적 사이트
+(`dist/`)로 서빙됩니다.
 
 실제로 동작하는 기능:
 
@@ -52,7 +53,7 @@ UI·브랜딩·코드는 이 프로젝트를 위해 새로 작성되었습니다
 
 - React 18 + TypeScript + Vite + Tailwind CSS
 - React Router v6 (브라우저: 소개만 / Tauri: 풀 앱 + 로그인 게이트)
-- Cloudflare Workers (Hono) + D1 — 계정·기기 동기화 API
+- Cloudflare Pages Functions (Hono) + D1 — 계정·기기 동기화 API
 - DXGI + ffmpeg (`h264_nvenc` / `libx264`) + 자체 UDP 미디어(LLU2: mediaToken/CRC/NACK/PLI/XOR) + WebCodecs 디코드
 - v0.5 보안: PIN은 WebSocket 본문만, URL 금지, 인증 rate-limit, UDP는 mediaToken + payload XOR
 - 호스트 로컬 WebSocket 시그널링 (세션/입력), Tauri 2 — Windows MSI / macOS DMG / Android APK / iOS IPA
@@ -68,21 +69,31 @@ npm run build
 계정 API까지 로컬에서 돌리려면:
 
 ```bash
-# 1) D1 생성 (최초 1회) — 출력되는 database_id를 wrangler.toml에 붙여넣기
+# 1) D1 생성 (최초 1회, 이미 되어있다면 생략) — 출력되는 database_id를 wrangler.toml에 붙여넣기
 npx wrangler d1 create lumalink
 
 # 2) 스키마 적용
 npx wrangler d1 execute lumalink --local --file=./migrations/0001_init.sql
 npx wrangler d1 execute lumalink --remote --file=./migrations/0001_init.sql
 
-# 3) JWT 시크릿
-copy .dev.vars.example .dev.vars   # 로컬용
-npx wrangler secret put JWT_SECRET # 프로덕션용
+# 3) Pages 프로젝트 생성 (최초 1회) — 대시보드에서 Git 연동해도 되고, CLI로도 가능
+npx wrangler pages project create alavex
 
-# 4) 배포 (정적 dist + /api Worker)
-npm run build
-npx wrangler deploy
+# 4) JWT 시크릿
+copy .dev.vars.example .dev.vars                              # 로컬용 (wrangler pages dev)
+npx wrangler pages secret put JWT_SECRET --project-name=alavex # 프로덕션용
+
+# 5) 로컬에서 API까지 함께 테스트
+npm run pages:dev
+
+# 6) 배포 (정적 dist + /api Pages Function)
+npm run pages:deploy
 ```
+
+Git 저장소를 Cloudflare Pages 프로젝트에 연결(대시보드 → Workers & Pages → Create →
+Pages → Connect to Git)하면 `git push`할 때마다 자동으로 빌드·배포됩니다. 빌드 명령은
+`npm run build`, 빌드 출력 디렉터리는 `dist`로 설정하세요. D1 바인딩과 `JWT_SECRET`
+시크릿은 대시보드의 프로젝트 Settings → Functions/Bindings 에서도 등록할 수 있습니다.
 
 네이티브 앱:
 
@@ -164,9 +175,10 @@ UI는 `StreamingEngine` 인터페이스만 봅니다. 기본은 `NativeH264Strea
 
 ```powershell
 git pull
-npm run build
-npx wrangler deploy
+npm run pages:deploy
 ```
+
+(Git 연동을 설정했다면 이 단계도 `git push`만으로 자동 실행됩니다.)
 
 iOS 기기 설치·TestFlight는 Apple Developer Team 시크릿(`APPLE_DEVELOPMENT_TEAM`)과 서명이 필요합니다.
 
@@ -182,9 +194,9 @@ iOS 기기 설치·TestFlight는 Apple Developer Team 시크릿(`APPLE_DEVELOPME
 
 ## 저작권 · 독립성 고지
 
-- LumaLink는 **독립적인 프로젝트**이며, 특정 상용/오픈소스 원격 스트리밍 소프트웨어와
+- AlaveX는 **독립적인 프로젝트**이며, 특정 상용/오픈소스 원격 스트리밍 소프트웨어와
   제휴·후원·파생 관계가 전혀 없습니다.
-- "LumaLink" 이름·로고·UI·코드는 전부 이 프로젝트를 위해 새로 만든 **오리지널 자산**입니다.
+- "AlaveX" 이름·로고·UI·코드는 전부 이 프로젝트를 위해 새로 만든 **오리지널 자산**입니다.
 - 언급될 수 있는 타사 제품명(예: Steam)은 각 소유자의 상표이며, 상호운용성 설명용으로만
   인용됩니다.
 - 실제 스트리밍은 Host + Streaming 네이티브 앱을 설치하고 계정으로 로그인한 뒤에만

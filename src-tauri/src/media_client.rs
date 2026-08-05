@@ -1,4 +1,4 @@
-//! UDP media client — LumaLink LLU2 (token auth, XOR payload, NACK, PLI, RTT).
+//! UDP media client — AlaveX LLU2 (token auth, XOR payload, NACK, PLI, RTT).
 
 use std::collections::HashMap;
 use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
@@ -26,7 +26,7 @@ const FLAG_ENC: u8 = 0x02;
 const VIDEO_HEADER_LEN: usize = 22;
 const AUDIO_HEADER_LEN: usize = 18; // magic+type+session+seq+flags+crc
 const MAX_FRAME: usize = 8 * 1024 * 1024;
-const MAX_PENDING_FRAMES: usize = 8;
+const MAX_PENDING_FRAMES: usize = 16;
 
 #[tauri::command]
 pub fn media_connect(
@@ -45,10 +45,10 @@ pub fn media_connect(
         .unwrap_or(pin);
     let addr = format!("{host}:{port}");
     thread::Builder::new()
-        .name("lumalink-media-client".into())
+        .name("alavex-media-client".into())
         .spawn(move || {
             if let Err(err) = run_client(app, addr, credential, stop) {
-                eprintln!("LumaLink media client: {err}");
+                eprintln!("AlaveX media client: {err}");
             }
         })
         .map_err(|e| e.to_string())?;
@@ -183,7 +183,7 @@ fn run_client(
                 (frames_lost as f64) * 100.0 / (frames_ok + frames_lost) as f64
             };
             let _ = app.emit(
-                "lumalink-media-stats",
+                "alavex-media-stats",
                 serde_json::json!({
                     "rttMs": rtt_ms,
                     "packetLossPct": (loss_pct * 10.0).round() / 10.0,
@@ -218,7 +218,7 @@ fn run_client(
                 if crc32(&payload) != expect_crc {
                     continue;
                 }
-                let _ = app.emit("lumalink-media-audio", payload);
+                let _ = app.emit("alavex-media-audio", payload);
             }
             Ok(n) if n >= VIDEO_HEADER_LEN && &buf[..4] == MAGIC && buf[4] == TYPE_VIDEO => {
                 let pkt_session = u32::from_be_bytes(buf[5..9].try_into().unwrap());
@@ -309,7 +309,7 @@ fn run_client(
                 last_emitted_frame = frame_id;
                 frames_ok = frames_ok.saturating_add(1);
                 // Base64 is far more reliable than Vec<u8>→number[] over Tauri IPC.
-                let _ = app.emit("lumalink-media-frame", base64_encode(&assembled));
+                let _ = app.emit("alavex-media-frame", base64_encode(&assembled));
             }
             Ok(_) => {}
             Err(err)

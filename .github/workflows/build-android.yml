@@ -1,6 +1,6 @@
 name: Build Android APK (Streaming)
 
-# LumaLink Streaming client APK via Tauri 2 mobile.
+# AlaveX Streaming client APK via Tauri 2 mobile.
 # Host stays Windows-only (DXGI).
 
 on:
@@ -62,7 +62,7 @@ jobs:
           import zlib, pathlib
           def chunk(t, d):
               return pack('>I', len(d)) + t + d + pack('>I', zlib.crc32(t + d) & 0xffffffff)
-          raw = b''.join(b'\x00' + bytes([30,40,80])*1024 for _ in range(1024))
+          raw = b''.join(b'\x00' + bytes([116,87,255])*1024 for _ in range(1024))
           png = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', pack('>IIBBBBB', 1024, 1024, 8, 2, 0, 0, 0))
           png += chunk(b'IDAT', zlib.compress(raw, 9)) + chunk(b'IEND', b'')
           pathlib.Path('placeholder.png').write_bytes(png)
@@ -106,25 +106,25 @@ jobs:
             exit 1
           fi
           echo "Signing $UNSIGNED"
-          ALIGNED="${RUNNER_TEMP}/lumalink-aligned.apk"
-          SIGNED="${RUNNER_TEMP}/lumalink-signed.apk"
+          ALIGNED="${RUNNER_TEMP}/alavex-aligned.apk"
+          SIGNED="${RUNNER_TEMP}/alavex-signed.apk"
           "$BUILD_TOOLS/zipalign" -f -p 4 "$UNSIGNED" "$ALIGNED"
-          KEYSTORE="${RUNNER_TEMP}/lumalink-release.keystore"
+          KEYSTORE="${RUNNER_TEMP}/alavex-release.keystore"
           keytool -genkeypair -v \
             -keystore "$KEYSTORE" \
-            -storepass lumalink \
-            -alias lumalink \
-            -keypass lumalink \
+            -storepass alavex \
+            -alias alavex \
+            -keypass alavex \
             -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=LumaLink"
+            -dname "CN=AlaveX"
           "$BUILD_TOOLS/apksigner" sign \
             --ks "$KEYSTORE" \
-            --ks-pass pass:lumalink \
-            --key-pass pass:lumalink \
+            --ks-pass pass:alavex \
+            --key-pass pass:alavex \
             --out "$SIGNED" "$ALIGNED"
           "$BUILD_TOOLS/apksigner" verify --verbose "$SIGNED"
           mkdir -p releases
-          cp "$SIGNED" releases/LumaLink-Streaming.apk
+          cp "$SIGNED" releases/AlaveX-Streaming.apk
 
       - name: Upload build log on failure
         if: failure()
@@ -137,9 +137,9 @@ jobs:
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: lumalink-android-apk
+          name: alavex-android-apk
           path: |
-            releases/LumaLink-Streaming.apk
+            releases/AlaveX-Streaming.apk
             src-tauri/gen/android/**/apk/**/*.apk
           if-no-files-found: error
 
@@ -155,7 +155,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: lumalink-android-apk
+          name: alavex-android-apk
           path: artifacts/android
 
       - name: Copy APK
@@ -163,18 +163,18 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p releases
-          apk=$(find artifacts/android -name 'LumaLink-Streaming.apk' | head -n1)
+          apk=$(find artifacts/android -name 'AlaveX-Streaming.apk' | head -n1)
           if [ -z "${apk:-}" ]; then
             apk=$(find artifacts/android -name '*signed*.apk' | head -n1)
           fi
           if [ -z "${apk:-}" ]; then
             apk=$(find artifacts/android -name '*.apk' | head -n1)
           fi
-          cp "$apk" releases/LumaLink-Streaming.apk
+          cp "$apk" releases/AlaveX-Streaming.apk
 
       - name: Commit and push APK
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: publish Android streaming app (${{ github.sha }})"
-          file_pattern: "releases/LumaLink-Streaming.apk"
+          file_pattern: "releases/AlaveX-Streaming.apk"
           branch: ${{ github.event.repository.default_branch }}

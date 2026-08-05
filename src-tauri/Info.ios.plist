@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
   <key>NSLocalNetworkUsageDescription</key>
-  <string>LumaLink finds your gaming PC on the local network and streams video over LAN.</string>
+  <string>AlaveX finds your gaming PC on the local network and streams video over LAN.</string>
   <key>NSBonjourServices</key>
   <array>
-    <string>_lumalink._udp</string>
-    <string>_lumalink._tcp</string>
+    <string>_alavex._udp</string>
+    <string>_alavex._tcp</string>
   </array>
   <key>NSAppTransportSecurity</key>
   <dict>

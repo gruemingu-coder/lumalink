@@ -1,6 +1,7 @@
-import { NavLink } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { Logo } from "./Logo";
 import { useAppState } from "@/state/AppStateContext";
+import { ThemeSwitcher } from "@/components/theme/ThemeSwitcher";
 
 interface NavItem {
   to: string;
@@ -44,15 +45,6 @@ const navItems: NavItem[] = [
       </svg>
     ),
   },
-  {
-    to: "/download",
-    label: "앱 다운로드",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v13m0 0-4-4m4 4 4-4M4 19h16" />
-      </svg>
-    ),
-  },
 ];
 
 interface SidebarProps {
@@ -69,9 +61,9 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       className="flex h-full w-full flex-col justify-between bg-base-900 px-4 py-5"
     >
       <div>
-        <a href="/" className="mb-8 flex items-center px-2">
+        <Link to="/app/devices" className="mb-8 flex items-center px-2">
           <Logo size="sm" />
-        </a>
+        </Link>
         <ul className="flex flex-col gap-1">
           {navItems.map((item) => (
             <li key={item.to}>
@@ -94,12 +86,15 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         </ul>
       </div>
 
-      <div className="rounded-xl border border-base-700 bg-base-850 px-3 py-3">
-        <p className="text-xs font-medium text-slate-400">페어링된 PC</p>
-        <p className="mt-1 text-sm text-slate-200">
-          <span className="font-semibold text-accent-400">{onlineCount}</span>
-          <span className="text-slate-500"> / {devices.length}대 온라인</span>
-        </p>
+      <div className="flex flex-col gap-3">
+        <div className="rounded-xl border border-base-700 bg-base-850 px-3 py-3">
+          <p className="text-xs font-medium text-slate-400">페어링된 PC</p>
+          <p className="mt-1 text-sm text-slate-200">
+            <span className="font-semibold text-accent-400">{onlineCount}</span>
+            <span className="text-slate-500"> / {devices.length}대 온라인</span>
+          </p>
+        </div>
+        <ThemeSwitcher className="justify-center" />
       </div>
     </nav>
   );

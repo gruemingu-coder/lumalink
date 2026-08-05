@@ -11,8 +11,8 @@ const sizeMap = {
 };
 
 /**
- * Original LumaLink mark: a hex "link" outline with a diamond core.
- * Not derived from any third-party logo or brand asset.
+ * Original AlaveX mark: a solid gradient badge with a bold geometric "A"
+ * monoline glyph. Not derived from any third-party logo or brand asset.
  */
 export function Logo({ size = "md", showWordmark = true, className = "" }: LogoProps) {
   const { icon, text } = sizeMap[size];
@@ -26,25 +26,25 @@ export function Logo({ size = "md", showWordmark = true, className = "" }: LogoP
         aria-hidden="true"
         className="shrink-0"
       >
-        <rect width="64" height="64" rx="16" className="fill-base-800" />
+        <rect width="64" height="64" rx="17" fill="url(#alavex-badge)" />
         <path
-          d="M32 10L48 19V37L32 46L16 37V19L32 10Z"
-          stroke="url(#lumalink-gradient)"
-          strokeWidth="3"
+          d="M19 47L32 15L45 47"
+          stroke="white"
+          strokeWidth="6.5"
+          strokeLinecap="round"
           strokeLinejoin="round"
         />
-        <path d="M24 27L32 22L40 27V37L32 42L24 37V27Z" className="fill-accent-500" />
-        <circle cx="32" cy="32" r="3.5" className="fill-base-800" />
+        <path d="M24.5 35H39.5" stroke="white" strokeWidth="6" strokeLinecap="round" />
         <defs>
-          <linearGradient id="lumalink-gradient" x1="16" y1="10" x2="48" y2="46">
-            <stop stopColor="#8b7bff" />
-            <stop offset="1" stopColor="#3fe0c5" />
+          <linearGradient id="alavex-badge" x1="4" y1="4" x2="60" y2="60">
+            <stop stopColor="rgb(var(--color-brand-500))" />
+            <stop offset="1" stopColor="rgb(var(--color-accent-400))" />
           </linearGradient>
         </defs>
       </svg>
       {showWordmark && (
-        <span className={`font-semibold tracking-tight text-white ${text}`}>
-          Luma<span className="text-brand-400">Link</span>
+        <span className={`font-semibold tracking-tight text-heading ${text}`}>
+          Alave<span className="text-brand-400">X</span>
         </span>
       )}
     </div>

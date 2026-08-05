@@ -1,4 +1,4 @@
-//! LumaLink native capture/encode/media server.
+//! AlaveX native capture/encode/media server.
 //!
 //! Independent of Sunshine/Moonlight:
 //! DXGI desktop duplication → H.264 via NVIDIA NVENC (`ffmpeg h264_nvenc`)
@@ -74,10 +74,10 @@ pub fn spawn(hub: std::sync::Arc<MediaHub>) {
     #[cfg(windows)]
     {
         std::thread::Builder::new()
-            .name("lumalink-media".into())
+            .name("alavex-media".into())
             .spawn(move || {
                 if let Err(err) = server::run_blocking(hub) {
-                    eprintln!("LumaLink media server stopped: {err}");
+                    eprintln!("AlaveX media server stopped: {err}");
                 }
             })
             .expect("failed to spawn media thread");

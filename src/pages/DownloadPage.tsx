@@ -4,33 +4,36 @@ import { Logo } from "@/components/layout/Logo";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { ThemeSwitcher } from "@/components/theme/ThemeSwitcher";
 
 /**
  * Host MSI + Streaming clients. Windows/macOS/Android installers are
  * published to `public/downloads/` by CI on tagged releases. iOS uses
  * TestFlight / IPA from Actions until App Store listing exists.
  */
-const HOST_APP_DOWNLOAD_URL = "/downloads/LumaLink-Host-Setup.msi";
-const STREAMING_WIN_URL = "/downloads/LumaLink-Streaming-Setup.msi";
-const STREAMING_MAC_URL = "/downloads/LumaLink-Streaming-macOS.dmg";
+const HOST_APP_DOWNLOAD_URL = "/downloads/AlaveX-Host-Setup.msi";
+const STREAMING_WIN_URL = "/downloads/AlaveX-Streaming-Setup.msi";
+const STREAMING_MAC_URL = "/downloads/AlaveX-Streaming-macOS.dmg";
 const STREAMING_ANDROID_URL =
-  "https://raw.githubusercontent.com/gruemingu-coder/lumalink/main/releases/LumaLink-Streaming.apk";
+  "https://raw.githubusercontent.com/gruemingu-coder/lumalink/main/releases/AlaveX-Streaming.apk";
 
 const HOST = {
-  name: "LumaLink Host",
+  name: "AlaveX Host",
   tagline: "스트리밍할 게이밍 PC에 설치 (Windows 전용)",
   description:
-    "이 PC의 화면을 DXGI로 캡처하고 NVIDIA NVENC(또는 libx264)로 인코딩해 스트리밍합니다. PIN 페어링, Steam 목록, 입력 주입을 처리하며, 계정 로그인 후 창을 닫아도 트레이에서 대기합니다. 호스트 PC에 ffmpeg가 PATH에 있어야 합니다.",
+    "이 PC의 화면을 DXGI로 캡처하고 NVIDIA NVENC(또는 libx264)로 인코딩해 스트리밍합니다. PIN 페어링, Steam 목록, 입력 주입을 처리하며, 계정 로그인 후 창을 닫아도 트레이에서 대기합니다. ffmpeg는 최초 실행 시 자동으로 준비되므로 따로 설치하지 않아도 됩니다.",
   bullets: [
     "계정 로그인 (자동 로그인 지원)",
     "PIN 본문 인증 + mediaToken (URL에 PIN 없음)",
     "Steam 라이브러리 자동 스캔",
     "DXGI + NVENC → LLU2 UDP (CRC/NACK/PLI/암호화)",
+    "ffmpeg 자동 준비 (PATH 설정 불필요)",
+    "Xbox / DualSense / DualShock 4 컨트롤러 지원 (ViGEmBus 필요)",
     "원격 입력 (Win/Meta 키 차단) + 트레이 PIN 재발급",
     "닫아도 트레이에서 백그라운드 실행",
   ],
   downloadUrl: HOST_APP_DOWNLOAD_URL,
-  fileName: "LumaLink-Host-Setup.msi",
+  fileName: "AlaveX-Host-Setup.msi",
 } as const;
 
 const CLIENTS = [
@@ -41,7 +44,7 @@ const CLIENTS = [
     name: "Streaming · Windows",
     hint: "노트북·미니PC에서 플레이",
     url: STREAMING_WIN_URL,
-    fileName: "LumaLink-Streaming-Setup.msi",
+    fileName: "AlaveX-Streaming-Setup.msi",
     ready: true,
   },
   {
@@ -51,7 +54,7 @@ const CLIENTS = [
     name: "Streaming · Mac",
     hint: "Apple Silicon / Intel Mac (빌드 준비 중)",
     url: STREAMING_MAC_URL,
-    fileName: "LumaLink-Streaming-macOS.dmg",
+    fileName: "AlaveX-Streaming-macOS.dmg",
     ready: false,
   },
   {
@@ -61,7 +64,7 @@ const CLIENTS = [
     name: "Streaming · Android",
     hint: "휴대폰·태블릿 (사이드로드)",
     url: STREAMING_ANDROID_URL,
-    fileName: "LumaLink-Streaming.apk",
+    fileName: "AlaveX-Streaming.apk",
     ready: true,
   },
   {
@@ -71,7 +74,7 @@ const CLIENTS = [
     name: "Streaming · iOS",
     hint: "Mac에서 빌드 · TestFlight 배포",
     url: null as string | null,
-    fileName: "GitHub Actions → lumalink-ios",
+    fileName: "GitHub Actions → alavex-ios",
     ready: false,
   },
 ] as const;
@@ -84,11 +87,14 @@ export function DownloadPage() {
           <Link to="/">
             <Logo />
           </Link>
-          <Link to="/">
-            <Button size="sm" variant="secondary">
-              홈으로
-            </Button>
-          </Link>
+          <div className="flex items-center gap-3">
+            <ThemeSwitcher className="hidden sm:flex" />
+            <Link to="/">
+              <Button size="sm" variant="secondary">
+                홈으로
+              </Button>
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -97,7 +103,7 @@ export function DownloadPage() {
           <Badge tone="brand" className="mb-4">
             Host (Windows) · Client (Win / Mac / Android / iOS)
           </Badge>
-          <h1 className="text-3xl font-bold text-white sm:text-4xl">LumaLink 앱 다운로드</h1>
+          <h1 className="text-3xl font-bold text-heading sm:text-4xl">AlaveX 앱 다운로드</h1>
           <p className="mx-auto mt-3 max-w-xl text-slate-400">
             게이밍 PC에는 Host를, 플레이할 기기에는 Streaming 앱을 설치하세요. 웹사이트는
             소개·다운로드만 제공하며 실제 스트리밍은 네이티브 앱에서 동작합니다.
@@ -128,7 +134,7 @@ export function DownloadPage() {
         </Card>
 
         <section className="mt-10">
-          <h2 className="text-lg font-bold text-slate-100">LumaLink Streaming 클라이언트</h2>
+          <h2 className="text-lg font-bold text-slate-100">AlaveX Streaming 클라이언트</h2>
           <p className="mt-2 text-sm text-slate-400">
             계정 로그인, LAN 검색, Wake-on-LAN, LLU2 H.264 스트리밍(WebCodecs). 같은 계정에
             등록된 PC는 목록에서 바로 고를 수 있습니다.
@@ -176,48 +182,10 @@ export function DownloadPage() {
         </section>
 
         <Card className="mt-10 p-6">
-          <h2 className="text-base font-semibold text-slate-100">빌드 / CI</h2>
-          <ul className="mt-3 space-y-2 text-sm text-slate-400">
-            <li>
-              Windows MSI:{" "}
-              <code className="rounded bg-base-800 px-1.5 py-0.5 text-xs text-slate-200">
-                npm run tauri:build
-              </code>{" "}
-              · Actions <code className="rounded bg-base-800 px-1.5 py-0.5 text-xs">build-desktop</code>
-            </li>
-            <li>
-              macOS DMG:{" "}
-              <code className="rounded bg-base-800 px-1.5 py-0.5 text-xs text-slate-200">
-                npm run tauri:mac:build
-              </code>{" "}
-              · Actions <code className="rounded bg-base-800 px-1.5 py-0.5 text-xs">build-apple</code>
-            </li>
-            <li>
-              Android APK:{" "}
-              <code className="rounded bg-base-800 px-1.5 py-0.5 text-xs text-slate-200">
-                npm run tauri:android:build
-              </code>{" "}
-              · Actions <code className="rounded bg-base-800 px-1.5 py-0.5 text-xs">build-android</code>
-            </li>
-            <li>
-              iOS:{" "}
-              <code className="rounded bg-base-800 px-1.5 py-0.5 text-xs text-slate-200">
-                npm run tauri:ios:init
-              </code>{" "}
-              →{" "}
-              <code className="rounded bg-base-800 px-1.5 py-0.5 text-xs text-slate-200">
-                npm run tauri:ios:build
-              </code>{" "}
-              (macOS + Xcode + Apple Team 필요)
-            </li>
-          </ul>
-        </Card>
-
-        <Card className="mt-10 p-6">
           <h2 className="text-base font-semibold text-slate-100">설치 후 연결하는 방법</h2>
           <ol className="mt-4 space-y-3 text-sm text-slate-400">
             <li>
-              <span className="font-medium text-slate-200">1. 게이밍 PC에 LumaLink Host를 설치하고 실행하세요.</span>
+              <span className="font-medium text-slate-200">1. 게이밍 PC에 AlaveX Host를 설치하고 실행하세요.</span>
               <br />창에 표시되는 IP 주소와 4자리 PIN을 확인하세요.
             </li>
             <li>
@@ -248,7 +216,7 @@ export function DownloadPage() {
           <h2 className="text-base font-semibold text-slate-100">Android 설치 안내</h2>
           <ul className="mt-3 space-y-2 text-sm text-slate-400">
             <li>· 설정 → 보안 → <span className="text-slate-300">알 수 없는 앱 설치</span> 허용</li>
-            <li>· 이전에 설치한 LumaLink가 있으면 먼저 삭제 후 재설치</li>
+            <li>· 이전에 설치한 AlaveX가 있으면 먼저 삭제 후 재설치</li>
             <li>· 다운로드가 HTML로 저장되면 Chrome 메뉴 → <span className="text-slate-300">다시 다운로드</span>로 APK를 받으세요</li>
             <li>· Wi‑Fi로 APK(~95MB) 받은 뒤 파일 관리자에서 `.apk`를 탭해 설치</li>
           </ul>
@@ -258,11 +226,11 @@ export function DownloadPage() {
           <h2 className="text-base font-semibold text-slate-100">저작권 · 독립성 고지</h2>
           <ul className="mt-3 space-y-2 text-xs leading-relaxed text-slate-500">
             <li>
-              LumaLink는 <span className="text-slate-300">독립적인 프로젝트</span>이며 특정
+              AlaveX는 <span className="text-slate-300">독립적인 프로젝트</span>이며 특정
               상용/오픈소스 원격 스트리밍 소프트웨어와 제휴·후원·파생 관계가 없습니다.
             </li>
             <li>
-              "LumaLink" 이름·로고·UI·코드는 전부 이 프로젝트를 위해 새로 만든{" "}
+              "AlaveX" 이름·로고·UI·코드는 전부 이 프로젝트를 위해 새로 만든{" "}
               <span className="text-slate-300">오리지널 자산</span>이며, 타사 제품의 이름·로고·
               문구·이미지·코드를 그대로 사용하지 않습니다.
             </li>

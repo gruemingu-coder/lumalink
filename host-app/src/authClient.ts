@@ -1,5 +1,5 @@
 /**
- * Client for the LumaLink accounts + cloud device sync API (see
+ * Client for the AlaveX accounts + cloud device sync API (see
  * `worker/index.ts` at the repo root). This is a hand-synced copy of
  * `src/services/account/authClient.ts` — the host app is a separate Vite
  * project and can't import across directories, so mirror any changes made
@@ -7,9 +7,11 @@
  * sync between the two apps.
  */
 
-// Replace with your own deployed Worker's origin if you use a custom
-// domain instead of the default *.workers.dev URL.
-const API_BASE_URL = "https://lumalink.gruemingu.workers.dev/api";
+// Origin of the deployed Pages project (see `functions/api/[[route]].ts`
+// + `wrangler.toml`). If you name the Pages project something other
+// than "alavex", or attach a custom domain, update this — and the
+// identical constant in `src/services/account/authClient.ts`.
+const API_BASE_URL = "https://alavex.pages.dev/api";
 
 export interface AccountUser {
   id: string;

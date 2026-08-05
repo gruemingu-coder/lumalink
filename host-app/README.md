@@ -1,11 +1,11 @@
-# LumaLink Host App
+# AlaveX Host App
 
 Runs on the gaming PC you want to stream **from**. Built with
 [Tauri](https://tauri.app) (Rust) + a small React/TypeScript UI.
 
 ## What it actually does
 
-- **Requires a LumaLink account** on first launch (login/signup). The
+- **Requires a AlaveX account** on first launch (login/signup). The
   session is persisted with `tauri-plugin-store` so the next launch
   auto-logs in. Closing the window **hides to the system tray** instead
   of quitting — signaling, discovery, and cloud heartbeats keep running
@@ -19,7 +19,7 @@ Runs on the gaming PC you want to stream **from**. Built with
   `libraryfolders.vdf` / `appmanifest_*.acf` parsing) and lists fully
   installed games. No mock data — if Steam isn't installed, the list is
   genuinely empty.
-- When a LumaLink Streaming App client authenticates with the correct
+- When a AlaveX Streaming App client authenticates with the correct
   PIN and sends a WebRTC offer, this app calls the browser/webview's
   own `navigator.mediaDevices.getDisplayMedia()` to **really** capture
   the screen (and system audio, where supported) and streams it back
@@ -42,7 +42,7 @@ Runs on the gaming PC you want to stream **from**. Built with
   A manual "Steam 빅픽처 모드 실행" button remains available too.
 - Can also launch a selected Steam game via `steam://run/<appid>`.
 - Broadcasts a small UDP announcement every 2s (`discovery.rs`, port
-  58713) so the LumaLink Streaming *desktop* app can auto-discover this
+  58713) so the AlaveX Streaming *desktop* app can auto-discover this
   PC on the LAN instead of requiring a manually typed IP address. The
   announcement never includes the PIN.
 - Reports this PC's MAC address during pairing so the Streaming desktop
@@ -53,7 +53,7 @@ Runs on the gaming PC you want to stream **from**. Built with
 
 ```
 ┌─────────────────────────────┐        LAN, ws://<host-ip>:58712/signal
-│  LumaLink Host App (Tauri)  │◄───────────────────────────────────────┐
+│  AlaveX Host App (Tauri)  │◄───────────────────────────────────────┐
 │                              │                                       │
 │  Rust (src-tauri/):          │  role=host                            │
 │   - signaling.rs: tiny WS    │◄──────────┐                           │
@@ -66,10 +66,10 @@ Runs on the gaming PC you want to stream **from**. Built with
 │   - on "offer": getDisplayMedia() + RTCPeerConnection (real WebRTC)  │
 └─────────────────────────────┘                                       │
                                                                         │
-                                                     LumaLink Streaming App
+                                                     AlaveX Streaming App
                                                      (Tauri client, or a
                                                       browser tab on the
-                                                      LumaLink website)
+                                                      AlaveX website)
 ```
 
 The Rust relay never touches media — it only forwards SDP/ICE JSON
@@ -102,7 +102,7 @@ The `.msi` is written to `src-tauri/target/release/bundle/msi/`.
 - **LAN only.** Signaling is plain `ws://` with no TLS and only PIN-based
   auth — do not port-forward this to the public internet.
 - **No NAT traversal.** Only STUN is configured, no TURN — this targets
-  same-network streaming, matching LumaLink's "low latency on my LAN"
+  same-network streaming, matching AlaveX's "low latency on my LAN"
   positioning, not internet-wide play.
 - **FPS is a target, not a guarantee.** The UI allows requesting up to
   500 FPS to match Moonlight/Sunshine-style sliders, but the actual
@@ -112,7 +112,7 @@ The `.msi` is written to `src-tauri/target/release/bundle/msi/`.
   capture (Desktop Duplication API + NVENC/AMF) would require replacing
   this app's capture path with native Rust code — noted as a future
   direction, not implemented here.
-- **Wake-on-LAN only wakes what the NIC/BIOS allow.** LumaLink can send
+- **Wake-on-LAN only wakes what the NIC/BIOS allow.** AlaveX can send
   the magic packet from the Streaming desktop app, but the host PC's
   network adapter must have WOL enabled in Windows device settings
   and/or BIOS for it to actually work.

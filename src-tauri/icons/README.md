@@ -7,7 +7,7 @@ yourself from a single square source image (ideally 1024x1024 PNG):
 
 ```powershell
 npm install
-npx tauri icon path\to\lumalink-logo-1024.png
+npx tauri icon path\to\alavex-logo-1024.png
 ```
 
 This writes all required formats/sizes directly into this `icons/` folder.

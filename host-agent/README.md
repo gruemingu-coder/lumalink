@@ -1,7 +1,7 @@
-# LumaLink Host Agent
+# AlaveX Host Agent
 
-This small Windows program is the first real part of LumaLink. It finds games
-installed by Steam, pairs one LumaLink client with a six-digit code, and allows
+This small Windows program is the first real part of AlaveX. It finds games
+installed by Steam, pairs one AlaveX client with a six-digit code, and allows
 that paired client to request a Steam launch. It does **not** yet capture the
 screen or send keyboard/mouse input. Those need the separate WebRTC streaming
 module that will be added next.
@@ -27,7 +27,7 @@ npm.cmd run host -- --lan
 This listens on the PC's local network address. Do not port-forward this
 service to the public internet.
 
-Your deployed LumaLink website is HTTPS, so a browser cannot connect directly
+Your deployed AlaveX website is HTTPS, so a browser cannot connect directly
 to a plain `http://` host service from another device. For remote use, create a
 secure HTTPS tunnel or deploy the WebRTC signalling service first. A temporary
 Cloudflare Tunnel for local testing can be started with:

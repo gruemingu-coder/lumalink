@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "LumaLink Host",
+  "productName": "AlaveX Host",
   "version": "0.5.0",
-  "identifier": "org.lumalink.hostapp",
+  "identifier": "org.alavex.hostapp",
   "build": {
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "LumaLink Host",
+        "title": "AlaveX Host",
         "width": 480,
         "height": 720,
         "minWidth": 420,
@@ -27,10 +27,10 @@
   "bundle": {
     "active": true,
     "targets": ["msi"],
-    "publisher": "LumaLink",
+    "publisher": "AlaveX",
     "category": "Utility",
-    "shortDescription": "LumaLink Host App - share this PC's games with LumaLink clients",
-    "longDescription": "Runs on your gaming PC. Shows a pairing PIN, lists installed Steam games, and streams your screen to a paired LumaLink Streaming App client over your local network using WebRTC.",
+    "shortDescription": "AlaveX Host App - share this PC's games with AlaveX clients",
+    "longDescription": "Runs on your gaming PC. Shows a pairing PIN, lists installed Steam games, and streams your screen to a paired AlaveX Streaming App client over your local network.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

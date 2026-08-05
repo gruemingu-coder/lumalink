@@ -1,11 +1,26 @@
 /**
- * LumaLink native H.264 streaming client.
+ * AlaveX native H.264 streaming client.
  *
  * Host: DXGI → ffmpeg h264_nvenc/libx264 → UDP :58714 (LLU2)
  * Client: Tauri UDP bridge → WebCodecs VideoDecoder → canvas → <video>
  *
  * Independent of Sunshine/Moonlight protocols.
  */
+import {
+  annexBToAvcc,
+  buildAvcCDescription,
+  buildAvcCodecString,
+  extractSpsPps,
+  looksLikeKeyFrame,
+} from "@/utils/h264";
+import type { InputForwardEvent, StreamingEngine, Unsubscribe } from "./StreamingEngine";
+import {
+  decodeSignalingMessage,
+  encodeSignalingMessage,
+  type GamepadStateWire,
+  type RemoteGameSummary,
+  type RemoteQualitySettings,
+} from "./signalingProtocol";
 import type {
   RealHostConnectInfo,
   StreamConnectConfig,
@@ -13,13 +28,7 @@ import type {
   StreamSettings,
   StreamStats,
 } from "@/types/domain";
-import type { InputForwardEvent, StreamingEngine, Unsubscribe } from "./StreamingEngine";
-import {
-  decodeSignalingMessage,
-  encodeSignalingMessage,
-  type RemoteGameSummary,
-  type RemoteQualitySettings,
-} from "./signalingProtocol";
+import { isBlockedByMixedContent, MIXED_CONTENT_ERROR_MESSAGE } from "@/utils/platform";
 
 const AUTH_TIMEOUT_MS = 8000;
 const DEFAULT_MEDIA_PORT = 58714;
@@ -55,6 +64,8 @@ export class NativeH264StreamingEngine implements StreamingEngine {
   private lastBytesReceived = 0;
   private lastStatsAt = 0;
   private configured = false;
+  private useAvccChunks = false;
+  private targetFps = 60;
 
   private audioDecoder: AudioDecoder | null = null;
   private audioConfigured = false;
@@ -75,12 +86,16 @@ export class NativeH264StreamingEngine implements StreamingEngine {
     this.settings = config.settings;
     this.gameId = config.gameId;
     this.realHost = realHost;
+    this.targetFps = config.settings.fps;
     this.setStatus("negotiating");
 
     await this.openSignaling(realHost);
   }
 
   private openSignaling(realHost: RealHostConnectInfo): Promise<void> {
+    if (isBlockedByMixedContent()) {
+      return Promise.reject(new Error(MIXED_CONTENT_ERROR_MESSAGE));
+    }
     return new Promise((resolve, reject) => {
       let settled = false;
       const settleResolve = () => {
@@ -202,16 +217,16 @@ export class NativeH264StreamingEngine implements StreamingEngine {
       this.unlistenAudio?.();
       this.unlistenStats?.();
       // Prefer base64 (stable IPC); number[] still accepted for older builds.
-      this.unlistenFrame = await listen<number[] | string>("lumalink-media-frame", (event) => {
+      this.unlistenFrame = await listen<number[] | string>("alavex-media-frame", (event) => {
         this.onAnnexBFrame(event.payload);
       });
-      this.unlistenAudio = await listen<number[]>("lumalink-media-audio", (event) => {
+      this.unlistenAudio = await listen<number[]>("alavex-media-audio", (event) => {
         this.onAdtsAudio(event.payload);
       });
       this.unlistenStats = await listen<{
         rttMs?: number;
         packetLossPct?: number;
-      }>("lumalink-media-stats", (event) => {
+      }>("alavex-media-stats", (event) => {
         if (typeof event.payload.rttMs === "number") this.lastRttMs = event.payload.rttMs;
         if (typeof event.payload.packetLossPct === "number") {
           this.lastLossPct = event.payload.packetLossPct;
@@ -249,6 +264,7 @@ export class NativeH264StreamingEngine implements StreamingEngine {
       },
     });
     this.configured = false;
+    this.useAvccChunks = false;
   }
 
   private onAnnexBFrame(payload: number[] | string) {
@@ -261,22 +277,28 @@ export class NativeH264StreamingEngine implements StreamingEngine {
 
     if (!this.configured) {
       if (!isKey) return;
+      const spsPps = extractSpsPps(bytes);
+      if (!spsPps) return;
       try {
-        // Annex-B with in-band SPS/PPS (ffmpeg dump_extra on keyframes).
+        const codec = buildAvcCodecString(spsPps.sps);
+        const description = buildAvcCDescription(spsPps.sps, spsPps.pps);
         this.decoder.configure({
-          codec: "avc1.42E01E",
+          codec,
+          description,
           optimizeForLatency: true,
           hardwareAcceleration: "prefer-hardware",
         });
         this.configured = true;
+        this.useAvccChunks = false;
       } catch (err) {
         console.error("VideoDecoder configure failed", err);
         try {
           this.decoder.configure({
-            codec: "avc1.640028",
+            codec: buildAvcCodecString(spsPps.sps),
             optimizeForLatency: true,
           });
           this.configured = true;
+          this.useAvccChunks = true;
         } catch (err2) {
           console.error("VideoDecoder configure fallback failed", err2);
           return;
@@ -284,16 +306,18 @@ export class NativeH264StreamingEngine implements StreamingEngine {
       }
     }
 
+    const chunkData = this.useAvccChunks ? annexBToAvcc(bytes) : bytes;
+
     try {
-      // Drop if decoder is backed up (common with high FPS).
-      if (this.decoder.decodeQueueSize > 10) {
+      const queueLimit = Math.max(12, Math.ceil(this.targetFps / 10));
+      if (this.decoder.decodeQueueSize > queueLimit) {
         if (!isKey) return;
       }
       this.decoder.decode(
         new EncodedVideoChunk({
           type: isKey ? "key" : "delta",
           timestamp: performance.now() * 1000,
-          data: bytes,
+          data: chunkData,
         })
       );
     } catch (err) {
@@ -425,9 +449,9 @@ export class NativeH264StreamingEngine implements StreamingEngine {
     const parent = this.videoEl.parentElement;
     if (!parent) return;
     if (!this.canvas.isConnected) {
-      this.canvas.className = this.videoEl.className;
+      this.canvas.className = "h-full w-full object-contain";
       this.canvas.style.cssText =
-        "position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;";
+        "position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;opacity:1;z-index:1;";
       parent.style.position = parent.style.position || "relative";
       parent.insertBefore(this.canvas, this.videoEl);
       this.videoEl.style.opacity = "0";
@@ -435,7 +459,8 @@ export class NativeH264StreamingEngine implements StreamingEngine {
     }
     // Also feed <video> for APIs that expect a MediaStream.
     if (!this.canvasStream) {
-      this.canvasStream = this.canvas.captureStream(60);
+      const streamFps = Math.min(Math.max(this.targetFps, 30), 120);
+      this.canvasStream = this.canvas.captureStream(streamFps);
       this.videoEl.srcObject = this.canvasStream;
       this.videoEl.muted = true;
       void this.videoEl.play().catch(() => undefined);
@@ -494,6 +519,7 @@ export class NativeH264StreamingEngine implements StreamingEngine {
     }
     this.decoder = null;
     this.configured = false;
+    this.useAvccChunks = false;
 
     try {
       this.audioDecoder?.close();
@@ -531,6 +557,12 @@ export class NativeH264StreamingEngine implements StreamingEngine {
   sendInput(event: InputForwardEvent): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(encodeSignalingMessage({ type: "input", event }));
+    }
+  }
+
+  sendGamepad(index: number, state: GamepadStateWire): void {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(encodeSignalingMessage({ type: "gamepad", index, state }));
     }
   }
 
@@ -588,23 +620,3 @@ function base64ToBytes(b64: string): Uint8Array {
   return out;
 }
 
-/** True if the Annex-B buffer contains an IDR / SPS (key-ish) NAL. */
-function looksLikeKeyFrame(data: Uint8Array): boolean {
-  let i = 0;
-  while (i + 4 < data.length) {
-    let start = -1;
-    if (data[i] === 0 && data[i + 1] === 0 && data[i + 2] === 0 && data[i + 3] === 1) {
-      start = i + 4;
-    } else if (data[i] === 0 && data[i + 1] === 0 && data[i + 2] === 1) {
-      start = i + 3;
-    }
-    if (start >= 0 && start < data.length) {
-      const nalType = data[start] & 0x1f;
-      if (nalType === 5 || nalType === 7) return true;
-      i = start;
-      continue;
-    }
-    i += 1;
-  }
-  return false;
-}

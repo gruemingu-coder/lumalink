@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/state/AuthContext";
 
 /**
- * Shown whenever the LumaLink Streaming desktop app launches without a
+ * Shown whenever the AlaveX Streaming desktop app launches without a
  * valid saved session. Not reachable in a plain browser — the public
  * website never mounts `AppLayout`/this page (see `src/App.tsx`).
  */
@@ -67,7 +67,7 @@ export function LoginPage() {
           </div>
 
           <h1 className="text-lg font-semibold text-slate-100">
-            {mode === "login" ? "LumaLink 계정으로 로그인" : "LumaLink 계정 만들기"}
+            {mode === "login" ? "AlaveX 계정으로 로그인" : "AlaveX 계정 만들기"}
           </h1>
           <p className="mt-1 text-xs text-slate-500">
             {mode === "login"
@@ -122,7 +122,7 @@ export function LoginPage() {
         </Card>
 
         <p className="mt-5 text-center text-[11px] leading-relaxed text-slate-600">
-          LumaLink는 독립적인 프로젝트이며 특정 상용 소프트웨어와 무관합니다. 계정은 호스트/스트리밍
+          AlaveX는 독립적인 프로젝트이며 특정 상용 소프트웨어와 무관합니다. 계정은 호스트/스트리밍
           앱을 서로 연결하고 페어링된 PC 목록을 동기화하는 용도로만 사용됩니다.
         </p>
       </div>

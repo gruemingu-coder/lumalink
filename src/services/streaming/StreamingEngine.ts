@@ -29,6 +29,16 @@ export interface StreamingEngine {
   /** Forward local input to the host (signaling WS or data channel). */
   sendInput(event: InputForwardEvent): void;
 
+  /**
+   * Forward a local gamepad's state to the host, which maps it onto a
+   * virtual XInput controller (Xbox/DualSense/DualShock 4, ...). Optional
+   * — engines that don't support controller passthrough simply ignore it.
+   */
+  sendGamepad?(
+    index: number,
+    state: import("./signalingProtocol").GamepadStateWire
+  ): void;
+
   /** Attach the <video> element that the incoming MediaStream is rendered into. */
   attachRenderTarget(target: HTMLVideoElement): void;
 

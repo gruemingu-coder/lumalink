@@ -1,5 +1,5 @@
 /**
- * Core domain types for LumaLink.
+ * Core domain types for AlaveX.
  *
  * These types intentionally describe *capabilities* (pairing, devices,
  * games, streaming sessions) rather than any particular transport.
@@ -18,13 +18,13 @@ export interface HostSpecs {
   ramGb: number;
 }
 
-/** A host PC that has been (or can be) paired with LumaLink. */
+/** A host PC that has been (or can be) paired with AlaveX. */
 export interface PcDevice {
   id: string;
   name: string;
   platform: DevicePlatform;
   /**
-   * The actual IPv4 address of a machine running the LumaLink Host App,
+   * The actual IPv4 address of a machine running the AlaveX Host App,
    * used to open a WebSocket connection to its signaling relay.
    */
   address: string;
@@ -50,7 +50,7 @@ export interface PcDevice {
   /**
    * LAN MAC address reported by the Host App during pairing, if it
    * could be determined. Used to send a Wake-on-LAN magic packet from
-   * the LumaLink Streaming desktop app when this device is asleep.
+   * the AlaveX Streaming desktop app when this device is asleep.
    * Browsers can't send raw UDP, so WOL only works from the Tauri app.
    */
   macAddress?: string | null;
@@ -137,7 +137,7 @@ export interface StreamStats {
   decoder: "hardware" | "software";
 }
 
-/** Connection details for a LumaLink Host App reachable over the LAN. */
+/** Connection details for an AlaveX Host App reachable over the LAN. */
 export interface RealHostConnectInfo {
   address: string;
   signalPort: number;
@@ -155,13 +155,13 @@ export interface StreamConnectConfig {
 
 export const DEFAULT_STREAM_SETTINGS: StreamSettings = {
   resolution: "1080p",
-  fps: 60,
-  bitrateMbps: 25,
-  codec: "h265",
+  fps: 120,
+  bitrateMbps: 35,
+  codec: "h264",
   hardwareDecode: true,
   hostAudio: true,
   vsync: false,
-  latencyMode: "balanced",
+  latencyMode: "latency",
   streamStartAction: "desktop",
   customProgramPath: "",
 };

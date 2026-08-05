@@ -1,4 +1,4 @@
-//! UDP media hub — LumaLink LLU2 protocol (not Sunshine/Moonlight).
+//! UDP media hub — AlaveX LLU2 protocol (not Sunshine/Moonlight).
 //!
 //! Client → Host:
 //! - `LLU2` + AUTH(0x01) + mediaToken (hex) — preferred; legacy PIN still accepted
@@ -216,7 +216,7 @@ pub fn run_blocking(hub: Arc<MediaHub>) -> Result<(), String> {
 
     let hub_recv = hub.clone();
     thread::Builder::new()
-        .name("lumalink-media-udp".into())
+        .name("alavex-media-udp".into())
         .spawn(move || recv_loop(hub_recv, recv_sock))
         .map_err(|e| e.to_string())?;
 
@@ -452,7 +452,7 @@ fn capture_loop(hub: Arc<MediaHub>) -> Result<(), String> {
             match DesktopCapture::primary() {
                 Ok(c) => capturer = Some(c),
                 Err(err) => {
-                    eprintln!("LumaLink capture error: {err}");
+                    eprintln!("AlaveX capture error: {err}");
                     thread::sleep(Duration::from_secs(1));
                     continue;
                 }
@@ -473,7 +473,7 @@ fn capture_loop(hub: Arc<MediaHub>) -> Result<(), String> {
                     encoder = Some(enc);
                     last_encode_cfg = encode_cfg;
                     eprintln!(
-                        "LumaLink encoder ready: {:?} {}x{} @{}fps {}Mbps (LLU2/UDP)",
+                        "AlaveX encoder ready: {:?} {}x{} @{}fps {}Mbps (LLU2/UDP)",
                         hub.preferred_backend(),
                         w,
                         h,
@@ -482,7 +482,7 @@ fn capture_loop(hub: Arc<MediaHub>) -> Result<(), String> {
                     );
                 }
                 Err(err) => {
-                    eprintln!("LumaLink encoder error: {err}");
+                    eprintln!("AlaveX encoder error: {err}");
                     thread::sleep(Duration::from_secs(1));
                     continue;
                 }
@@ -493,7 +493,7 @@ fn capture_loop(hub: Arc<MediaHub>) -> Result<(), String> {
         let frame = match capturer.as_mut().unwrap().next_frame_bgra() {
             Ok(f) => f,
             Err(err) => {
-                eprintln!("LumaLink frame error: {err}");
+                eprintln!("AlaveX frame error: {err}");
                 capturer = None;
                 continue;
             }
@@ -508,7 +508,7 @@ fn capture_loop(hub: Arc<MediaHub>) -> Result<(), String> {
                 }
             }
             Err(err) => {
-                eprintln!("LumaLink encode error: {err}");
+                eprintln!("AlaveX encode error: {err}");
                 encoder = None;
             }
         }
@@ -524,8 +524,9 @@ fn capture_loop(hub: Arc<MediaHub>) -> Result<(), String> {
         let now = Instant::now();
         if next_deadline > now {
             thread::sleep(next_deadline - now);
-        } else if now.duration_since(tick) > frame_interval * 3 {
-            next_deadline = now;
+        } else if now.duration_since(tick) > frame_interval * 2 {
+            // Catch up after a slow frame instead of compounding delay.
+            next_deadline = now + frame_interval;
         }
     }
 }

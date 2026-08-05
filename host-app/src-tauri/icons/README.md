@@ -5,5 +5,5 @@ source image before running `npm run tauri:build` here.
 
 ```powershell
 npm install
-npx tauri icon path\to\lumalink-host-logo-1024.png
+npx tauri icon path\to\alavex-host-logo-1024.png
 ```

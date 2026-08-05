@@ -43,7 +43,7 @@ function DevicePicker({ devices }: { devices: ReturnType<typeof useAppState>["de
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
-      <h1 className="text-2xl font-bold text-white">어떤 PC의 라이브러리를 볼까요?</h1>
+      <h1 className="text-2xl font-bold text-heading">어떤 PC의 라이브러리를 볼까요?</h1>
       <p className="mt-1 text-sm text-slate-400">라이브러리를 볼 PC를 선택하세요.</p>
       <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
         {devices.map((device) => (
@@ -103,7 +103,7 @@ function DeviceLibrary({
       const result = await connectToRealHost(
         device.address,
         device.pairingPin,
-        "LumaLink Web",
+        "AlaveX Web",
         device.signalPort ?? SIGNALING_PORT
       );
       setRealGames(device.id, result.games);
@@ -150,7 +150,7 @@ function DeviceLibrary({
             <p className="text-xs font-medium text-brand-400">{device.name}</p>
             {device.isReal && <Badge tone="brand">실기 연결</Badge>}
           </div>
-          <h1 className="text-2xl font-bold text-white">게임 라이브러리</h1>
+          <h1 className="text-2xl font-bold text-heading">게임 라이브러리</h1>
         </div>
         <div className="flex w-full items-center gap-2 sm:w-auto">
           {device.isReal && (

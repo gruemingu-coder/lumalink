@@ -1,10 +1,10 @@
 /**
  * Wire protocol spoken with the local Rust signaling relay
  * (`src-tauri/src/signaling.rs`) and, through it, with a connecting
- * LumaLink Streaming App client.
+ * AlaveX Streaming App client.
  *
  * Kept as a small hand-synced copy of
- * `src/services/streaming/signalingProtocol.ts` in the main LumaLink
+ * `src/services/streaming/signalingProtocol.ts` in the main AlaveX
  * repo (this is a separate npm project, so it can't `import` from
  * there directly without workspace tooling). If you change one, change
  * the other.
@@ -67,6 +67,12 @@ export type SignalingMessage =
       clientId?: string;
     }
   | { type: "input"; event: unknown; clientId?: string }
+  | {
+      type: "gamepad";
+      index: number;
+      state: { connected: boolean; buttons: number[]; axes: number[] };
+      clientId?: string;
+    }
   | { type: "answer"; sdp: string; clientId?: string }
   | { type: "ice"; candidate: IceCandidateInit; clientId?: string }
   | { type: "games"; games: RemoteGameSummary[]; clientId?: string }

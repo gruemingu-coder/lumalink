@@ -1,6 +1,6 @@
 /**
  * Minimal, dependency-free password hashing (PBKDF2 via Web Crypto) and
- * signed bearer tokens (HMAC-SHA256) for the LumaLink accounts API.
+ * signed bearer tokens (HMAC-SHA256) for the AlaveX accounts API.
  *
  * This intentionally does not pull in a JWT library — Workers ship the
  * WebCrypto `crypto.subtle` API natively, which is enough for a small,

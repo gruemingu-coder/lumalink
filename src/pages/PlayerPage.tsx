@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { StreamHud } from "@/components/player/StreamHud";
+import { mapClientKey } from "@/utils/keyMapping";
+import { detectClientPlatform } from "@/utils/platform";
+import { startGamepadPolling } from "@/utils/gamepadInput";
 import type { StreamSessionStatus } from "@/types/domain";
 
 const statusText: Record<StreamSessionStatus, string> = {
@@ -25,7 +28,8 @@ export function PlayerPage() {
   const { deviceId, gameId } = useParams<{ deviceId: string; gameId: string }>();
   const navigate = useNavigate();
   const { getDevice, settings, realGamesByDevice } = useAppState();
-  const { status, stats, error, mediaRef, start, stop, retry, sendInput } = useStreamingSession();
+  const { status, stats, error, mediaRef, start, stop, retry, sendInput, sendGamepad } =
+    useStreamingSession();
   const [showHud, setShowHud] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const startedRef = useRef(false);
@@ -47,12 +51,20 @@ export function PlayerPage() {
           address: device.address,
           signalPort: device.signalPort ?? SIGNALING_PORT,
           pairingPin: device.pairingPin,
-          clientName: "LumaLink Web",
+          clientName: detectClientPlatform() === "macos" ? "AlaveX Mac" : "AlaveX",
         },
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [device?.id, game?.id]);
+
+  // Xbox / DualSense / DualShock 4 (or any browser "standard" gamepad)
+  // support: poll while actively streaming and forward snapshots so the
+  // host can drive a virtual XInput controller.
+  useEffect(() => {
+    if (status !== "streaming") return;
+    return startGamepadPolling((index, state) => sendGamepad(index, state));
+  }, [status, sendGamepad]);
 
   const handleExit = async () => {
     await stop();
@@ -82,7 +94,7 @@ export function PlayerPage() {
   const forwardKey = (e: React.KeyboardEvent<HTMLDivElement>, type: "keydown" | "keyup") => {
     if (!canConnect || status !== "streaming") return;
     e.preventDefault();
-    sendInput({ type, key: e.key });
+    sendInput({ type, key: mapClientKey(e.key, e.code) });
   };
 
   if (!device || !game) {
@@ -186,7 +198,10 @@ export function PlayerPage() {
 
       <footer className="flex flex-wrap items-center justify-center gap-2 border-t border-base-800 px-4 py-3 sm:justify-between">
         <p className="hidden text-xs text-slate-500 sm:block">
-          화면을 클릭한 뒤 마우스·키보드를 사용하면 호스트 PC로 입력이 전달됩니다.
+          {detectClientPlatform() === "macos"
+            ? "⌘ 키는 Windows Ctrl로, ⌥ 키는 Alt로 전달됩니다. 화면을 클릭한 뒤 입력하세요."
+            : "화면을 클릭한 뒤 마우스·키보드를 사용하면 호스트 PC로 입력이 전달됩니다."}
+          {" · "}Xbox/DualSense/DualShock 4 컨트롤러를 연결하면 자동으로 인식됩니다.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2">
           <Button variant="secondary" size="sm" onClick={() => setShowHud((v) => !v)}>

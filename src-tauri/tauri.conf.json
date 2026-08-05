@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "LumaLink",
+  "productName": "AlaveX",
   "version": "0.5.0",
-  "identifier": "org.lumalink.streamingapp",
+  "identifier": "org.alavex.streamingapp",
   "build": {
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "LumaLink",
+        "title": "AlaveX",
         "width": 1280,
         "height": 800,
         "minWidth": 360,
@@ -29,10 +29,10 @@
   "bundle": {
     "active": true,
     "targets": ["msi", "dmg", "app"],
-    "publisher": "LumaLink",
+    "publisher": "AlaveX",
     "category": "Game",
-    "shortDescription": "LumaLink Streaming App — remote PC game streaming client",
-    "longDescription": "Native LumaLink client for Windows, macOS, Android, and iOS. Connects to a LumaLink Host on your LAN and streams PC games with low latency (LLU2 + WebCodecs).",
+    "shortDescription": "AlaveX Streaming App — remote PC game streaming client",
+    "longDescription": "Native AlaveX client for Windows, macOS, Android, and iOS. Connects to an AlaveX Host on your LAN and streams PC games with low latency (LLU2 + WebCodecs).",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

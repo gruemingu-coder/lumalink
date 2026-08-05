@@ -5,6 +5,7 @@ import type {
   StreamingEngine,
   Unsubscribe,
 } from "@/services/streaming/StreamingEngine";
+import type { GamepadStateWire } from "@/services/streaming/signalingProtocol";
 import type {
   StreamConnectConfig,
   StreamSessionStatus,
@@ -22,6 +23,8 @@ interface UseStreamingSessionResult {
   retry: () => Promise<void>;
   /** Forwards mouse/keyboard input to the active engine, if any. */
   sendInput: (event: InputForwardEvent) => void;
+  /** Forwards a gamepad snapshot to the active engine, if any. */
+  sendGamepad: (index: number, state: GamepadStateWire) => void;
 }
 
 /**
@@ -139,6 +142,10 @@ export function useStreamingSession(): UseStreamingSessionResult {
     engineRef.current?.sendInput(event);
   }, []);
 
+  const sendGamepad = useCallback((index: number, state: GamepadStateWire) => {
+    engineRef.current?.sendGamepad?.(index, state);
+  }, []);
+
   useEffect(() => {
     return () => {
       void teardown();
@@ -152,5 +159,5 @@ export function useStreamingSession(): UseStreamingSessionResult {
     }
   }, [status]);
 
-  return { status, stats, error, mediaRef, start, stop, retry, sendInput };
+  return { status, stats, error, mediaRef, start, stop, retry, sendInput, sendGamepad };
 }

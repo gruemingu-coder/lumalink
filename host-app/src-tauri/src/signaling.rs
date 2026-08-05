@@ -1,4 +1,4 @@
-//! WebSocket signaling relay for LumaLink.
+//! WebSocket signaling relay for AlaveX.
 //!
 //! Security notes (v0.5+):
 //! - PIN is NOT accepted in the query string (avoid leaking via logs/proxies).
@@ -37,11 +37,11 @@ pub async fn run(state: Arc<SignalingState>) {
             )
             .await
             {
-                eprintln!("LumaLink signaling server stopped: {err}");
+                eprintln!("AlaveX signaling server stopped: {err}");
             }
         }
         Err(err) => {
-            eprintln!("LumaLink signaling server failed to bind :{SIGNALING_PORT} — {err}");
+            eprintln!("AlaveX signaling server failed to bind :{SIGNALING_PORT} — {err}");
         }
     }
 }
@@ -246,7 +246,7 @@ async fn authenticate_client(
 pub fn host_display_name() -> String {
     std::env::var("COMPUTERNAME")
         .or_else(|_| std::env::var("HOSTNAME"))
-        .unwrap_or_else(|_| "LumaLink Host".to_string())
+        .unwrap_or_else(|_| "AlaveX Host".to_string())
 }
 
 fn extract_client_id(text: &str) -> Option<String> {

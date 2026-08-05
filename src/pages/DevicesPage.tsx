@@ -85,7 +85,7 @@ export function DevicesPage() {
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-10">
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">내 PC</h1>
+          <h1 className="text-2xl font-bold text-heading">내 PC</h1>
           <p className="mt-1 text-sm text-slate-400">
             페어링된 PC를 관리하고 새 PC를 연결하세요.
           </p>
@@ -142,7 +142,7 @@ export function DevicesPage() {
         <EmptyState
           icon={<MonitorOffIcon />}
           title="아직 페어링된 PC가 없습니다"
-          description="게이밍 PC를 LumaLink에 등록하면 어디서든 저지연으로 게임을 스트리밍할 수 있어요."
+          description="게이밍 PC를 AlaveX에 등록하면 어디서든 저지연으로 게임을 스트리밍할 수 있어요."
           action={
             <Link to="/app/pairing">
               <Button>첫 PC 페어링하기</Button>

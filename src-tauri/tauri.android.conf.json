@@ -1,11 +1,11 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "LumaLink",
-  "identifier": "org.lumalink.streamingapp",
+  "productName": "AlaveX",
+  "identifier": "org.alavex.streamingapp",
   "app": {
     "windows": [
       {
-        "title": "LumaLink",
+        "title": "AlaveX",
         "width": 1280,
         "height": 800,
         "minWidth": 360,

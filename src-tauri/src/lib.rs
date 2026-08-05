@@ -1,4 +1,4 @@
-//! LumaLink Streaming App (client) — Tauri shell around the React UI.
+//! AlaveX Streaming App (client) — Tauri shell around the React UI.
 //!
 //! Native DXGI+NVENC path: UDP media client (`media_client`, LLU2) bridges
 //! Annex-B H.264 into the webview for WebCodecs decode. Legacy WebRTC
@@ -29,5 +29,5 @@ pub fn run() {
             media_client::media_disconnect
         ])
         .run(tauri::generate_context!())
-        .expect("error while running the LumaLink streaming app");
+        .expect("error while running the AlaveX streaming app");
 }

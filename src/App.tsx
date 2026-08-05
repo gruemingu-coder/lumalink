@@ -14,7 +14,7 @@ import { isNativeApp } from "@/utils/platform";
 
 export default function App() {
   // The public website (plain browser build) is intro/download only — the
-  // interactive app only exists inside the LumaLink Streaming native app
+  // interactive app only exists inside the AlaveX Streaming native app
   // (Windows / macOS / Android / iOS), behind the account login gate.
   if (!isNativeApp()) {
     return (
@@ -55,7 +55,7 @@ function DesktopApp() {
         <Route path="settings" element={<SettingsPage />} />
       </Route>
       <Route path="/player/:deviceId/:gameId" element={<PlayerPage />} />
-      <Route path="/download" element={<DownloadPage />} />
+      <Route path="/download" element={<Navigate to="/app" replace />} />
       <Route path="*" element={<Navigate to="/app" replace />} />
     </Routes>
   );

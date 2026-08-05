@@ -3,6 +3,7 @@ import { Logo } from "@/components/layout/Logo";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { ThemeSwitcher } from "@/components/theme/ThemeSwitcher";
 
 const features = [
   {
@@ -31,7 +32,7 @@ const steps = [
   {
     step: "1",
     title: "앱 설치 후 로그인",
-    description: "게이밍 PC엔 LumaLink Host를, 사용할 기기엔 LumaLink Streaming을 설치하고 계정으로 로그인하세요.",
+    description: "게이밍 PC엔 AlaveX Host를, 사용할 기기엔 AlaveX Streaming을 설치하고 계정으로 로그인하세요.",
   },
   {
     step: "2",
@@ -59,17 +60,18 @@ export function LandingPage() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
           <Logo />
           <nav aria-label="주 메뉴" className="hidden items-center gap-6 text-sm text-slate-300 md:flex">
-            <a href="#features" className="hover:text-white">
+            <a href="#features" className="hover:text-heading">
               기능
             </a>
-            <a href="#how-it-works" className="hover:text-white">
+            <a href="#how-it-works" className="hover:text-heading">
               작동 방식
             </a>
-            <Link to="/download" className="hover:text-white">
+            <Link to="/download" className="hover:text-heading">
               앱 다운로드
             </Link>
           </nav>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <ThemeSwitcher className="hidden sm:flex" />
             <Link to="/download" className="hidden sm:block">
               <Button size="sm" variant="secondary">
                 앱 다운로드
@@ -90,7 +92,7 @@ export function LandingPage() {
               <Badge tone="brand" className="mb-5">
                 독립 개발 · 오리지널 서비스
               </Badge>
-              <h1 className="text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl">
+              <h1 className="text-4xl font-bold leading-tight tracking-tight text-heading sm:text-5xl">
                 내 PC 게임을
                 <br />
                 다른 기기에서
@@ -100,7 +102,7 @@ export function LandingPage() {
                 </span>
               </h1>
               <p className="mt-5 text-base text-slate-400 sm:text-lg">
-                LumaLink는 집에 있는 게이밍 PC의 화면과 사운드를 노트북, 태블릿, TV로
+                AlaveX는 집에 있는 게이밍 PC의 화면과 사운드를 노트북, 태블릿, TV로
                 실시간 전송하는 독립 원격 스트리밍 서비스입니다.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center lg:justify-start">
@@ -145,7 +147,7 @@ export function LandingPage() {
         {/* Features */}
         <section id="features" className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
           <div className="mb-10 text-center">
-            <h2 className="text-2xl font-bold text-white sm:text-3xl">왜 LumaLink인가요</h2>
+            <h2 className="text-2xl font-bold text-heading sm:text-3xl">왜 AlaveX인가요</h2>
             <p className="mt-2 text-slate-400">가정용 PC를 개인 클라우드 게이밍 서버처럼 사용하세요.</p>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -164,7 +166,7 @@ export function LandingPage() {
         {/* How it works */}
         <section id="how-it-works" className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
           <div className="mb-10 text-center">
-            <h2 className="text-2xl font-bold text-white sm:text-3xl">작동 방식</h2>
+            <h2 className="text-2xl font-bold text-heading sm:text-3xl">작동 방식</h2>
             <p className="mt-2 text-slate-400">3단계면 충분합니다.</p>
           </div>
           <ol className="grid grid-cols-1 gap-6 sm:grid-cols-3">
@@ -192,18 +194,18 @@ export function LandingPage() {
         <div className="mx-auto max-w-6xl">
           <Logo size="sm" />
           <p className="mt-4 max-w-2xl text-xs leading-relaxed text-slate-500">
-            LumaLink는 <span className="text-slate-300">독립적으로 개발·운영되는 실제 서비스</span>
+            AlaveX는 <span className="text-slate-300">독립적으로 개발·운영되는 실제 서비스</span>
             이며, 특정 상용/오픈소스 원격 스트리밍 소프트웨어와 제휴·후원·파생 관계가 없습니다. 이
             웹사이트는 소개와{" "}
             <Link to="/download" className="underline hover:text-slate-300">
               앱 다운로드
             </Link>
-            만 제공하며, 실제 화면 공유는 LumaLink Host와 Streaming 앱(Windows·Mac·Android·iOS)을 설치하고 계정으로
-            로그인해야 이용할 수 있습니다. "LumaLink" 이름·로고·UI·코드는 전부 이 프로젝트를 위해
+            만 제공하며, 실제 화면 공유는 AlaveX Host와 Streaming 앱(Windows·Mac·Android·iOS)을 설치하고 계정으로
+            로그인해야 이용할 수 있습니다. "AlaveX" 이름·로고·UI·코드는 전부 이 프로젝트를 위해
             새로 만든 오리지널 자산이며, 타사 제품의 이름·로고·문구·이미지·코드를 그대로 사용하지
             않습니다.
           </p>
-          <p className="mt-4 text-xs text-slate-600">© 2026 LumaLink. All rights reserved.</p>
+          <p className="mt-4 text-xs text-slate-600">© 2026 AlaveX. All rights reserved.</p>
         </div>
       </footer>
     </div>

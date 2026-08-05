@@ -2,7 +2,7 @@
   "name": "lumalink",
   "private": true,
   "version": "0.5.0",
-  "description": "LumaLink - independent remote PC game streaming service (React + TypeScript + Tailwind CSS).",
+  "description": "AlaveX - independent remote PC game streaming service (React + TypeScript + Tailwind CSS).",
   "type": "module",
   "engines": {
     "node": ">=18.0.0"
@@ -12,6 +12,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
+    "pages:dev": "wrangler pages dev dist --d1=DB",
+    "pages:deploy": "npm run build && wrangler pages deploy dist --project-name=alavex",
     "host": "node host-agent/host.mjs",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",

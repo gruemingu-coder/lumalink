@@ -1,5 +1,5 @@
 //! One-shot LAN discovery: listens briefly for UDP broadcast
-//! announcements sent by LumaLink Host apps (see
+//! announcements sent by AlaveX Host apps (see
 //! `host-app/src-tauri/src/discovery.rs`) and returns whatever it
 //! hears. Only available from this desktop app — browsers have no API
 //! for receiving raw UDP, so the website keeps using manual IP entry
@@ -31,7 +31,7 @@ struct Announcement {
 }
 
 /// Listens for up to `timeout_ms` milliseconds and returns every
-/// distinct LumaLink Host that announced itself during that window
+/// distinct AlaveX Host that announced itself during that window
 /// (deduplicated by source IP).
 pub fn discover(timeout_ms: u64) -> Result<Vec<DiscoveredHost>, String> {
     let socket = UdpSocket::bind(("0.0.0.0", DISCOVERY_PORT))
@@ -49,7 +49,7 @@ pub fn discover(timeout_ms: u64) -> Result<Vec<DiscoveredHost>, String> {
             Ok((len, src)) => {
                 if let Ok(text) = std::str::from_utf8(&buf[..len]) {
                     if let Ok(announcement) = serde_json::from_str::<Announcement>(text) {
-                        if announcement.kind == "lumalink-host-announce" {
+                        if announcement.kind == "alavex-host-announce" {
                             let address = src.ip().to_string();
                             found.insert(
                                 address.clone(),

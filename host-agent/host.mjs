@@ -1,8 +1,8 @@
 /**
- * LumaLink Host Agent
+ * AlaveX Host Agent
  *
  * A small, local Windows service that discovers installed Steam games and
- * lets a LumaLink client pair using a one-time PIN. It deliberately starts
+ * lets a AlaveX client pair using a one-time PIN. It deliberately starts
  * on 127.0.0.1; pass --lan only when a trusted local network client needs
  * to reach it. Streaming is intentionally not implemented here yet: it
  * needs a separate authenticated WebRTC media/input pipeline.
@@ -211,7 +211,7 @@ const server = createServer(async (request, response) => {
 
     if (method === "POST" && url.pathname === "/v1/pairing/start") {
       const body = await readBody(request);
-      const clientName = typeof body.clientName === "string" ? body.clientName.slice(0, 64) : "LumaLink client";
+      const clientName = typeof body.clientName === "string" ? body.clientName.slice(0, 64) : "AlaveX client";
       const session = {
         id: randomUUID(),
         pin: createPin(),
@@ -223,7 +223,7 @@ const server = createServer(async (request, response) => {
       json(response, 201, {
         sessionId: session.id,
         expiresAt: new Date(session.expiresAt).toISOString(),
-        message: "Read the six-digit code in the LumaLink Host terminal.",
+        message: "Read the six-digit code in the AlaveX Host terminal.",
       }, headers);
       return;
     }
@@ -301,7 +301,7 @@ const server = createServer(async (request, response) => {
 });
 
 server.listen(port, listenAddress, () => {
-  console.log("\nLumaLink Host is running.");
+  console.log("\nAlaveX Host is running.");
   console.log(`Local address: http://${listenAddress}:${port}`);
   console.log(`Allowed web origin: ${allowedOrigins.join(", ")}`);
   console.log(lanMode ? "LAN mode is ON. Only use it on a trusted private network." : "Local-only mode is ON.");

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko" class="dark">
+<html lang="ko">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -7,9 +7,21 @@
     <meta name="theme-color" content="#07080d" />
     <meta
       name="description"
-      content="LumaLink — 내 PC 게임을 다른 기기에서 낮은 지연으로 플레이. 독립 원격 PC 게임 스트리밍 서비스."
+      content="AlaveX — 내 PC 게임을 다른 기기에서 낮은 지연으로 플레이. 독립 원격 PC 게임 스트리밍 서비스."
     />
-    <title>LumaLink — 내 PC를 어디서나 스트리밍</title>
+    <title>AlaveX — 내 PC를 어디서나 스트리밍</title>
+    <script>
+      (function () {
+        try {
+          var raw = window.localStorage.getItem("lumalink:theme");
+          var theme = raw ? JSON.parse(raw) : "dark";
+          if (["dark", "light", "purple", "sky"].indexOf(theme) === -1) theme = "dark";
+          document.documentElement.setAttribute("data-theme", theme);
+        } catch (e) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      })();
+    </script>
   </head>
   <body class="bg-base-950 text-slate-100 antialiased">
     <div id="root"></div>

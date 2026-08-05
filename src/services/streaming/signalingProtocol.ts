@@ -1,6 +1,6 @@
 /**
- * Wire protocol between the LumaLink streaming (client) app and the
- * LumaLink host app, relayed through the host's local WebSocket
+ * Wire protocol between the AlaveX streaming (client) app and the
+ * AlaveX host app, relayed through the host's local WebSocket
  * signaling server (see `host-app/src-tauri/src/signaling.rs`).
  *
  * Native path (preferred):
@@ -77,6 +77,25 @@ export interface InputMessage {
   event: import("./StreamingEngine").InputForwardEvent;
 }
 
+/**
+ * Standard Gamepad API snapshot (17 buttons / 4 axes), forwarded as-is —
+ * the host maps it onto a virtual XInput controller via ViGEmBus, so any
+ * controller the client's browser normalizes to the "standard" mapping
+ * (Xbox One/Series, DualSense, DualShock 4, ...) works transparently.
+ */
+export interface GamepadStateWire {
+  connected: boolean;
+  buttons: number[];
+  axes: number[];
+}
+
+export interface GamepadMessage {
+  type: "gamepad";
+  /** Client-local gamepad slot (0-3), supports multiple controllers. */
+  index: number;
+  state: GamepadStateWire;
+}
+
 export interface OfferMessage {
   type: "offer";
   sdp: string;
@@ -114,6 +133,7 @@ export type SignalingMessage =
   | StartStreamMessage
   | StreamReadyMessage
   | InputMessage
+  | GamepadMessage
   | OfferMessage
   | AnswerMessage
   | IceMessage

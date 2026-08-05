@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAppState } from "@/state/AppStateContext";
 import { useAuth } from "@/state/AuthContext";
+import { useTheme } from "@/state/ThemeContext";
 import type { StreamCodec, StreamLatencyMode, StreamResolution, StreamStartAction } from "@/types/domain";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -38,6 +39,7 @@ const streamStartActionOptions: { value: StreamStartAction; label: string }[] = 
 export function SettingsPage() {
   const { settings, updateSettings, resetSettings, devices, renameDevice } = useAppState();
   const { user, logout } = useAuth();
+  const { theme, setTheme, options: themeOptions } = useTheme();
   const [savedFlash, setSavedFlash] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState("");
@@ -52,7 +54,7 @@ export function SettingsPage() {
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:py-10">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">설정</h1>
+          <h1 className="text-2xl font-bold text-heading">설정</h1>
           <p className="mt-1 text-sm text-slate-400">스트리밍 화질과 성능을 조정하세요.</p>
         </div>
         {savedFlash && <Badge tone="success">저장됨</Badge>}
@@ -82,6 +84,51 @@ export function SettingsPage() {
             </Button>
           </Card>
         )}
+
+        <Card className="p-5">
+          <h2 className="mb-1 text-sm font-semibold text-slate-200">디자인 테마</h2>
+          <p className="mb-3 text-xs text-slate-500">
+            앱 전체의 배경·색상 테마를 바로 바꿀 수 있습니다.
+          </p>
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+            {themeOptions.map((option) => {
+              const selected = theme === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => {
+                    setTheme(option.id);
+                    flashSaved();
+                  }}
+                  className={`flex flex-col items-center gap-2 rounded-xl border p-3 transition-colors ${
+                    selected
+                      ? "border-brand-500 bg-brand-500/10"
+                      : "border-base-700 hover:border-brand-500/50"
+                  }`}
+                >
+                  <span
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-base-600"
+                    style={{ backgroundColor: option.previewBg }}
+                  >
+                    <span
+                      className="h-4 w-4 rounded-full"
+                      style={{ backgroundColor: option.previewAccent }}
+                    />
+                  </span>
+                  <span
+                    className={`text-xs font-medium ${
+                      selected ? "text-brand-300" : "text-slate-300"
+                    }`}
+                  >
+                    {option.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </Card>
 
         <Card className="p-5">
           <h2 className="mb-3 text-sm font-semibold text-slate-200">화질 &amp; 성능</h2>

@@ -1,7 +1,7 @@
 /**
- * Client for the LumaLink accounts + cloud device sync API (see
+ * Client for the AlaveX accounts + cloud device sync API (see
  * `worker/index.ts`). Both desktop apps (this streaming client and the
- * separate LumaLink Host app) call the same deployed Worker directly over
+ * separate AlaveX Host app) call the same deployed Worker directly over
  * HTTPS — there's no browser-side account UI, since the public website is
  * intro/download only.
  *
@@ -11,9 +11,11 @@
  * `signalingProtocol.ts` is kept in sync between the two apps.
  */
 
-// Replace with your own deployed Worker's origin if you use a custom
-// domain instead of the default *.workers.dev URL.
-const API_BASE_URL = "https://lumalink.gruemingu.workers.dev/api";
+// Origin of the deployed Pages project (see `functions/api/[[route]].ts`
+// + `wrangler.toml`). If you name the Pages project something other
+// than "alavex", or attach a custom domain, update this — and the
+// identical constant in `host-app/src/authClient.ts`.
+const API_BASE_URL = "https://alavex.pages.dev/api";
 
 export interface AccountUser {
   id: string;

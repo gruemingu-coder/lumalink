@@ -13,7 +13,7 @@ use std::os::windows::process::CommandExt;
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 fn ffmpeg_command() -> Command {
-    let mut cmd = Command::new("ffmpeg");
+    let mut cmd = Command::new(crate::ffmpeg_setup::ffmpeg_path());
     #[cfg(windows)]
     {
         cmd.creation_flags(CREATE_NO_WINDOW);
@@ -46,7 +46,7 @@ pub fn create_encoder(
     match FfmpegEncoder::spawn(width, height, fps, bitrate_mbps, true) {
         Ok(enc) => Ok(Box::new(enc)),
         Err(err) => {
-            eprintln!("LumaLink: NVENC unavailable ({err}); falling back to libx264");
+            eprintln!("AlaveX: NVENC unavailable ({err}); falling back to libx264");
             Ok(Box::new(FfmpegEncoder::spawn(
                 width,
                 height,
@@ -143,7 +143,9 @@ impl FfmpegEncoder {
                 "-maxrate".into(),
                 bitrate.clone(),
                 "-bufsize".into(),
-                format!("{}M", (bitrate_mbps.max(1) / 2).max(1)),
+                format!("{}M", (bitrate_mbps.max(1) / 2).max(2)),
+                "-rc-lookahead".into(),
+                "0".into(),
                 "-g".into(),
                 gop,
                 "-bf".into(),
@@ -157,7 +159,8 @@ impl FfmpegEncoder {
         } else {
             if !ffmpeg_has_encoder("libx264") {
                 return Err(
-                    "ffmpeg를 찾을 수 없습니다. PATH에 ffmpeg(full 빌드)를 넣어주세요.".into(),
+                    "ffmpeg를 아직 사용할 수 없습니다. 자동 설치가 끝날 때까지 잠시 기다려주세요."
+                        .into(),
                 );
             }
             args.extend([
@@ -201,9 +204,9 @@ impl FfmpegEncoder {
 
         let stdin = child.stdin.take().ok_or("ffmpeg stdin missing")?;
         let stdout = child.stdout.take().ok_or("ffmpeg stdout missing")?;
-        let (tx, rx) = mpsc::sync_channel(8);
+        let (tx, rx) = mpsc::sync_channel(64);
         thread::Builder::new()
-            .name("lumalink-enc-out".into())
+            .name("alavex-enc-out".into())
             .spawn(move || read_annex_b(stdout, tx))
             .map_err(|e| e.to_string())?;
 

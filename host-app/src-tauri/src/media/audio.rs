@@ -31,11 +31,11 @@ impl AudioCapture {
     pub fn try_start() -> Option<Self> {
         for device in ["loopback", "default"] {
             if let Ok(cap) = Self::spawn_wasapi(device) {
-                eprintln!("LumaLink audio: WASAPI `{device}` + aac ready");
+                eprintln!("AlaveX audio: WASAPI `{device}` + aac ready");
                 return Some(cap);
             }
         }
-        eprintln!("LumaLink audio: WASAPI unavailable — video-only stream");
+        eprintln!("AlaveX audio: WASAPI unavailable — video-only stream");
         None
     }
 
@@ -75,7 +75,7 @@ impl AudioCapture {
         let stdout = child.stdout.take().ok_or("ffmpeg audio stdout missing")?;
         let (tx, rx) = mpsc::sync_channel(32);
         thread::Builder::new()
-            .name("lumalink-audio-out".into())
+            .name("alavex-audio-out".into())
             .spawn(move || read_adts(stdout, tx))
             .map_err(|e| e.to_string())?;
 

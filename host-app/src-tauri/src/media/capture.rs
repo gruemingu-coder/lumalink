@@ -2,7 +2,6 @@
 
 use scrap::{Capturer, Display};
 use std::io::ErrorKind;
-use std::time::Duration;
 
 pub struct DesktopCapture {
     capturer: Capturer,
@@ -45,7 +44,7 @@ impl DesktopCapture {
                     return Ok(packed);
                 }
                 Err(err) if err.kind() == ErrorKind::WouldBlock => {
-                    std::thread::sleep(Duration::from_millis(1));
+                    std::thread::yield_now();
                 }
                 Err(err) => return Err(format!("화면 캡처 실패: {err}")),
             }
